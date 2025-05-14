@@ -30,7 +30,7 @@
             const geocoder = new google.maps.Geocoder();
 
             data.forEach(entry => {
-              const name = entry['設名'];  // ← ここを「施設名」から「設名」に変更
+              const name = entry['施設名'];  // 施設名
               const address = entry['住所'];
               const status = entry['受け取り可否'] || "未確認";
               const icon = icons[status] || icons["未確認"];
