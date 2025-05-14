@@ -10,7 +10,7 @@
         padding: 0;
       }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
     <script>
       function initMap() {
         const map = new google.maps.Map(document.getElementById('map'), {
@@ -18,7 +18,14 @@
           center: { lat: 35.71006, lng: 139.8107 } // 錦糸町中心
         });
 
-        fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
+        // ピンの色を受け取り可否に応じて設定
+        const icons = {
+          "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+          "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          "未確認": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+        };
+
+        fetch("YOUR_JSON_API_URL")
           .then(response => response.json())
           .then(data => {
             const geocoder = new google.maps.Geocoder();
@@ -26,13 +33,16 @@
             data.forEach(entry => {
               const name = entry['施設名'];
               const address = entry['住所'];
+              const status = entry['受け取り可否'] || "未確認";
+              const icon = icons[status] || icons["未確認"];
 
               geocoder.geocode({ address: address }, (results, status) => {
                 if (status === "OK") {
                   new google.maps.Marker({
                     map: map,
                     position: results[0].geometry.location,
-                    title: name
+                    title: name,
+                    icon: icon
                   });
                 } else {
                   console.error("ジオコーディング失敗: " + status + "（住所: " + address + "）");
