@@ -4,18 +4,40 @@
     <meta charset="utf-8">
     <title>訪問先マップ</title>
     <style>
-      html, body, #map {
+      html, body {
         height: 100%;
         margin: 0;
         padding: 0;
       }
+      #search-container {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999;
+        background: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
+      #map {
+        height: 100%;
+      }
+      #search-input {
+        width: 300px;
+        padding: 6px;
+        font-size: 14px;
+      }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
     <script>
+      let map;
+      let markers = [];
+
       function initMap() {
-        const map = new google.maps.Map(document.getElementById('map'), {
+        map = new google.maps.Map(document.getElementById('map'), {
           zoom: 13,
-          center: { lat: 35.71006, lng: 139.8107 } // 錦糸町中心
+          center: { lat: 35.71006, lng: 139.8107 }
         });
 
         const icons = {
@@ -27,56 +49,74 @@
         fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
           .then(response => response.json())
           .then(data => {
-            const geocoder = new google.maps.Geocoder();
+            createMarkers(data);
 
-            data.forEach(entry => {
-              const name = entry['施設名'];
-              const address = entry['住所'];
-              const status = entry['受け取り可否'] || "未確認";
-              const rawDate = entry['前回訪問'];
-              const visitor = entry['訪問者'] || "不明";
-
-              let visitDate = "未入力";
-              if (rawDate && rawDate !== "未入力") {
-                const d = new Date(rawDate);
-                const yyyy = d.getFullYear();
-                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
-                const dd = ("0" + d.getDate()).slice(-2);
-                visitDate = `${yyyy}/${mm}/${dd}`;
-              }
-
-              const icon = icons[status] || icons["未確認"];
-              const infoWindow = new google.maps.InfoWindow({
-                content: `
-                  <div style="text-align: left; line-height: 1.4;">
-                    <strong>${name}</strong><br>
-                    受け取り可否：${status}<br>
-                    前回訪問：${visitDate}　訪問者：${visitor}
-                  </div>`
-              });
-
-              geocoder.geocode({ address: address }, (results, status) => {
-                if (status === "OK") {
-                  const marker = new google.maps.Marker({
-                    map: map,
-                    position: results[0].geometry.location,
-                    title: name,
-                    icon: icon
-                  });
-
-                  marker.addListener("click", () => {
-                    infoWindow.open(map, marker);
-                  });
-                } else {
-                  console.error("ジオコーディング失敗: " + status + "（住所: " + address + "）");
-                }
-              });
+            // 検索イベント
+            const input = document.getElementById("search-input");
+            input.addEventListener("input", () => {
+              const keyword = input.value.trim();
+              const filtered = data.filter(entry => entry["施設名"].includes(keyword));
+              clearMarkers();
+              createMarkers(filtered);
             });
           });
+
+        function createMarkers(data) {
+          const geocoder = new google.maps.Geocoder();
+          data.forEach(entry => {
+            const name = entry['施設名'];
+            const address = entry['住所'];
+            const status = entry['受け取り可否'] || "未確認";
+            const rawDate = entry['前回訪問'];
+            const visitor = entry['訪問者'] || "不明";
+
+            let visitDate = "未入力";
+            if (rawDate && rawDate !== "未入力") {
+              const d = new Date(rawDate);
+              const yyyy = d.getFullYear();
+              const mm = ("0" + (d.getMonth() + 1)).slice(-2);
+              const dd = ("0" + d.getDate()).slice(-2);
+              visitDate = `${yyyy}/${mm}/${dd}`;
+            }
+
+            const icon = icons[status] || icons["未確認"];
+            const infoWindow = new google.maps.InfoWindow({
+              content: `
+                <div style="text-align: left; line-height: 1.4;">
+                  <strong>${name}</strong><br>
+                  受け取り可否：${status}<br>
+                  前回訪問：${visitDate}　訪問者：${visitor}
+                </div>`
+            });
+
+            geocoder.geocode({ address: address }, (results, status) => {
+              if (status === "OK") {
+                const marker = new google.maps.Marker({
+                  map: map,
+                  position: results[0].geometry.location,
+                  title: name,
+                  icon: icon
+                });
+
+                marker.addListener("click", () => {
+                  map.panTo(marker.getPosition()); // 📌 クリックで中央に移動
+                  infoWindow.open(map, marker);
+                });
+
+                markers.push(marker);
+              } else {
+                console.error("ジオコーディング失敗: " + status + "（住所: " + address + "）");
+              }
+            });
+          });
+        }
+
+        function clearMarkers() {
+          markers.forEach(marker => marker.setMap(null));
+          markers = [];
+        }
       }
     </script>
   </head>
   <body>
-    <div id="map"></div>
-  </body>
-</html>
+    <div id
