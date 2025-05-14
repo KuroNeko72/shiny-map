@@ -15,7 +15,7 @@
       function initMap() {
         const map = new google.maps.Map(document.getElementById('map'), {
           zoom: 13,
-          center: { lat: 35.71006, lng: 139.8107 }
+          center: { lat: 35.71006, lng: 139.8107 } // 錦糸町中心
         });
 
         const icons = {
@@ -33,12 +33,26 @@
               const name = entry['施設名'];
               const address = entry['住所'];
               const status = entry['受け取り可否'] || "未確認";
-              const lastVisit = entry['前回訪問'] || "記録なし";
+              const rawDate = entry['前回訪問'];
               const visitor = entry['訪問者'] || "不明";
-              const icon = icons[status] || icons["未確認"];
 
+              let visitDate = "未入力";
+              if (rawDate && rawDate !== "未入力") {
+                const d = new Date(rawDate);
+                const yyyy = d.getFullYear();
+                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
+                const dd = ("0" + d.getDate()).slice(-2);
+                visitDate = `${yyyy}/${mm}/${dd}`;
+              }
+
+              const icon = icons[status] || icons["未確認"];
               const infoWindow = new google.maps.InfoWindow({
-                content: `<strong>${name}</strong><br>受け取り可否：${status}<br>前回訪問：${lastVisit}　訪問者：${visitor}`
+                content: `
+                  <div style="text-align: left; line-height: 1.4;">
+                    <strong>${name}</strong><br>
+                    受け取り可否：${status}<br>
+                    前回訪問：${visitDate}　訪問者：${visitor}
+                  </div>`
               });
 
               geocoder.geocode({ address: address }, (results, status) => {
