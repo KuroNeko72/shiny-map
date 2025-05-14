@@ -15,7 +15,7 @@
       function initMap() {
         const map = new google.maps.Map(document.getElementById('map'), {
           zoom: 13,
-          center: { lat: 35.71006, lng: 139.8107 } // 錦糸町中心
+          center: { lat: 35.71006, lng: 139.8107 }
         });
 
         const icons = {
@@ -30,18 +30,28 @@
             const geocoder = new google.maps.Geocoder();
 
             data.forEach(entry => {
-              const name = entry['施設名'];  // 施設名
+              const name = entry['施設名'];
               const address = entry['住所'];
               const status = entry['受け取り可否'] || "未確認";
+              const lastVisit = entry['前回訪問'] || "記録なし";
+              const visitor = entry['訪問者'] || "不明";
               const icon = icons[status] || icons["未確認"];
+
+              const infoWindow = new google.maps.InfoWindow({
+                content: `<strong>${name}</strong><br>受け取り可否：${status}<br>前回訪問：${lastVisit}　訪問者：${visitor}`
+              });
 
               geocoder.geocode({ address: address }, (results, status) => {
                 if (status === "OK") {
-                  new google.maps.Marker({
+                  const marker = new google.maps.Marker({
                     map: map,
                     position: results[0].geometry.location,
                     title: name,
                     icon: icon
+                  });
+
+                  marker.addListener("click", () => {
+                    infoWindow.open(map, marker);
                   });
                 } else {
                   console.error("ジオコーディング失敗: " + status + "（住所: " + address + "）");
