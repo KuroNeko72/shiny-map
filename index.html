@@ -25,7 +25,8 @@
           "未確認": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
         };
 
-        fetch("YOUR_JSON_API_URL")
+        fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88
+
           .then(response => response.json())
           .then(data => {
             const geocoder = new google.maps.Geocoder();
