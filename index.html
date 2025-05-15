@@ -51,7 +51,6 @@
           .then(data => {
             createMarkers(data);
 
-            // 検索イベント
             const input = document.getElementById("search-input");
             input.addEventListener("input", () => {
               const keyword = input.value.trim();
@@ -89,7 +88,10 @@
                 </div>`
             });
 
-            geocoder.geocode({ address: address }, (results, status) => {
+            const query = address || name; // ← 住所が空なら施設名で検索
+            if (!query) return;
+
+            geocoder.geocode({ address: query }, (results, status) => {
               if (status === "OK") {
                 const marker = new google.maps.Marker({
                   map: map,
@@ -99,13 +101,13 @@
                 });
 
                 marker.addListener("click", () => {
-                  map.panTo(marker.getPosition()); // 📌 クリックで中央に移動
+                  map.panTo(marker.getPosition());
                   infoWindow.open(map, marker);
                 });
 
                 markers.push(marker);
               } else {
-                console.error("ジオコーディング失敗: " + status + "（住所: " + address + "）");
+                console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
               }
             });
           });
