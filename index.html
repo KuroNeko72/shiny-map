@@ -80,14 +80,12 @@
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
-
     <script>
       let map;
       let markers = [];
-      let selectedListItem = null;
       let customInfoWindows = [];
+      let selectedListItem = null;
 
-      // ✅ カスタム吹き出しクラス定義
       class CustomInfoWindow extends google.maps.OverlayView {
         constructor(marker, content) {
           super();
@@ -140,12 +138,14 @@
       }
 
       function clearMapAndSidebar() {
-        markers.forEach(m => m.setMap(null));
+        markers.forEach(marker => marker.setMap(null));
         markers = [];
         customInfoWindows.forEach(iw => iw.setMap(null));
         customInfoWindows = [];
+
         const sidebar = document.getElementById("sidebar");
         sidebar.innerHTML = '';
+        selectedListItem = null;
       }
 
       function createMarkers(data) {
@@ -205,28 +205,35 @@
               ? new Date(rawDate).toISOString().split("T")[0].replace(/-/g, "/")
               : "未入力";
 
+            const item = document.createElement("div");
+            item.className = "list-item";
+            item.textContent = name;
+            sidebar.appendChild(item); // 先に表示
+
+            const facilityName = name;
+            const facilityStatus = status;
+            const facilityDate = visitDate;
+            const facilityVisitor = visitor;
+
             geocoder.geocode({ address: address || name }, (results, statusCode) => {
               if (statusCode === "OK") {
                 const position = results[0].geometry.location;
                 const marker = new google.maps.Marker({
                   position,
                   map,
-                  title: name
+                  title: facilityName
                 });
 
                 const content = `
                   <div>
-                    <strong>${name}</strong><br>
-                    受け取り可否：${status}<br>
-                    前回訪問：${visitDate}　訪問者：${visitor}
+                    <strong>${facilityName}</strong><br>
+                    受け取り可否：${facilityStatus}<br>
+                    前回訪問：${facilityDate}　訪問者：${facilityVisitor}
                   </div>`;
 
                 const customWindow = new CustomInfoWindow(marker, content);
                 customInfoWindows.push(customWindow);
-
-                const item = document.createElement("div");
-                item.className = "list-item";
-                item.textContent = name;
+                markers.push(marker);
 
                 marker.addListener("click", () => {
                   customInfoWindows.forEach(iw => iw.setMap(null));
@@ -239,9 +246,8 @@
                   customWindow.setMap(map);
                   highlightSelectedItem(item);
                 });
-
-                markers.push(marker);
-                sidebar.appendChild(item);
+              } else {
+                console.warn(`ジオコーディング失敗: ${statusCode} (${address || name})`);
               }
             });
           });
