@@ -63,6 +63,12 @@
           center: { lat: 35.71006, lng: 139.8107 }
         });
 
+        const icons = {
+          "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+          "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          "未確認": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+        };
+
         fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
           .then(response => response.json())
           .then(data => {
@@ -74,7 +80,6 @@
           const sidebar = document.getElementById('sidebar');
           const grouped = {};
 
-          // グループ化（広報地区ごと）
           data.forEach(entry => {
             const district = entry['広報地区'] || "その他";
             if (!grouped[district]) grouped[district] = [];
@@ -89,32 +94,41 @@
 
             grouped[district].forEach(entry => {
               const name = entry['施設名'];
-              const query = name;
-              const station = entry['最寄り駅'] || "";
-              const person = entry['訪問先対応者'] || "";
-              const note = entry['その他特記事項'] || "";
-              const visitor = entry['訪問者'] || "";
+              const address = entry['住所'];
+              const query = address || name;
+              const status = entry['受け取り可否'] || "未確認";
+              const rawDate = entry['前回訪問'];
+              const visitor = entry['訪問者'] || "不明";
 
               if (!query) return;
+
+              let visitDate = "未入力";
+              if (rawDate && rawDate !== "未入力") {
+                const d = new Date(rawDate);
+                const yyyy = d.getFullYear();
+                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
+                const dd = ("0" + d.getDate()).slice(-2);
+                visitDate = `${yyyy}/${mm}/${dd}`;
+              }
 
               geocoder.geocode({ address: query }, (results, status) => {
                 if (status === "OK") {
                   const position = results[0].geometry.location;
+                  const icon = icons[status] || icons["未確認"];
                   const infoWindow = new google.maps.InfoWindow({
                     content: `
                       <div style="text-align:left;line-height:1.4;">
                         <strong>${name}</strong><br>
-                        最寄り駅：${station}<br>
-                        対応者：${person}<br>
-                        備考：${note}<br>
-                        訪問者：${visitor}
+                        受け取り可否：${status}<br>
+                        前回訪問：${visitDate}　訪問者：${visitor}
                       </div>`
                   });
 
                   const marker = new google.maps.Marker({
                     map: map,
                     position: position,
-                    title: name
+                    title: name,
+                    icon: icon
                   });
 
                   marker.addListener("click", () => {
@@ -137,12 +151,13 @@
                   });
                   sidebar.appendChild(item);
                 } else {
-                  console.error("ジオコーディング失敗: " + status + "（施設名: " + query + "）");
+                  console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
                 }
               });
             });
           }
 
+          // 一括クローズボタン追加
           const closeBtn = document.createElement("button");
           closeBtn.id = "close-button";
           closeBtn.textContent = "❌ すべての吹き出しを閉じる";
