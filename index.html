@@ -29,6 +29,10 @@
       .list-item:hover {
         background-color: #f0f0f0;
       }
+      .list-item.selected {
+        background-color: #ffeaa7;
+        font-weight: bold;
+      }
       .district-header {
         font-weight: bold;
         margin-top: 15px;
@@ -63,6 +67,7 @@
       let map;
       let markers = [];
       let infoWindows = [];
+      let selectedListItem = null; // 🔸 選択中のリストアイテムを記録
 
       function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -70,7 +75,7 @@
           center: { lat: 35.71006, lng: 139.8107 }
         });
 
-        reloadMapData(); // 初期データ読み込み
+        reloadMapData();
       }
 
       function reloadMapData() {
@@ -92,9 +97,9 @@
       function clearMapAndSidebar() {
         markers.forEach(marker => marker.setMap(null));
         markers = [];
-
         infoWindows.forEach(win => win.close());
         infoWindows = [];
+        selectedListItem = null;
 
         const sidebar = document.getElementById('sidebar');
         sidebar.innerHTML = '';
@@ -105,13 +110,7 @@
         const sidebar = document.getElementById('sidebar');
         const grouped = {};
 
-        data.forEach(entry => {
-          const district = entry['広報地区'] || "その他";
-          if (!grouped[district]) grouped[district] = [];
-          grouped[district].push(entry);
-        });
-
-        // 🔄 更新ボタン追加
+        // 🔄 更新ボタン
         const refreshBtn = document.createElement("button");
         refreshBtn.id = "refresh-button";
         refreshBtn.textContent = "🔄 データを更新";
@@ -120,7 +119,7 @@
         });
         sidebar.appendChild(refreshBtn);
 
-        // ❌ 一括クローズボタン追加
+        // ❌ 閉じるボタン
         const closeBtn = document.createElement("button");
         closeBtn.id = "close-button";
         closeBtn.textContent = "❌ すべての吹き出しを閉じる";
@@ -128,6 +127,13 @@
           closeAllInfoWindows();
         });
         sidebar.appendChild(closeBtn);
+
+        // 地区でグループ分け
+        data.forEach(entry => {
+          const district = entry['広報地区'] || "その他";
+          if (!grouped[district]) grouped[district] = [];
+          grouped[district].push(entry);
+        });
 
         for (const district in grouped) {
           const header = document.createElement("div");
@@ -174,24 +180,27 @@
                   icon: icon
                 });
 
+                const item = document.createElement("div");
+                item.className = "list-item";
+                item.textContent = name;
+
                 marker.addListener("click", () => {
                   closeAllInfoWindows();
                   map.panTo(marker.getPosition());
                   infoWindow.open(map, marker);
+                  highlightSelectedItem(item); // ✅ ハイライト追加
                 });
 
-                markers.push(marker);
-                infoWindows.push(infoWindow);
-
-                const item = document.createElement("div");
-                item.className = "list-item";
-                item.textContent = name;
                 item.addEventListener("click", () => {
                   closeAllInfoWindows();
                   map.panTo(marker.getPosition());
                   map.setZoom(16);
                   infoWindow.open(map, marker);
+                  highlightSelectedItem(item); // ✅ ハイライト追加
                 });
+
+                markers.push(marker);
+                infoWindows.push(infoWindow);
                 sidebar.appendChild(item);
               } else {
                 console.error("ジオコーディング失敗: " + statusCode + "（検索語句: " + query + "）");
@@ -199,6 +208,14 @@
             });
           });
         }
+      }
+
+      function highlightSelectedItem(newItem) {
+        if (selectedListItem) {
+          selectedListItem.classList.remove("selected");
+        }
+        newItem.classList.add("selected");
+        selectedListItem = newItem;
       }
 
       function closeAllInfoWindows() {
