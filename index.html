@@ -4,29 +4,29 @@
     <meta charset="utf-8">
     <title>訪問先マップ</title>
     <style>
-      html, body {
-        height: 100%;
+      body {
         margin: 0;
-        padding: 0;
+        font-family: Arial, sans-serif;
+        display: flex;
+        height: 100vh;
       }
-      #search-container {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 999;
-        background: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      #sidebar {
+        width: 300px;
+        overflow-y: auto;
+        border-right: 1px solid #ccc;
+        padding: 10px;
+        box-sizing: border-box;
       }
       #map {
-        height: 100%;
+        flex: 1;
       }
-      #search-input {
-        width: 300px;
-        padding: 6px;
-        font-size: 14px;
+      .list-item {
+        padding: 6px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+      }
+      .list-item:hover {
+        background-color: #f0f0f0;
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
@@ -50,24 +50,21 @@
           .then(response => response.json())
           .then(data => {
             createMarkers(data);
-
-            const input = document.getElementById("search-input");
-            input.addEventListener("input", () => {
-              const keyword = input.value.trim();
-              const filtered = data.filter(entry => entry["施設名"].includes(keyword));
-              clearMarkers();
-              createMarkers(filtered);
-            });
           });
 
         function createMarkers(data) {
           const geocoder = new google.maps.Geocoder();
+          const sidebar = document.getElementById('sidebar');
+
           data.forEach(entry => {
             const name = entry['施設名'];
             const address = entry['住所'];
+            const query = address || name;
             const status = entry['受け取り可否'] || "未確認";
             const rawDate = entry['前回訪問'];
             const visitor = entry['訪問者'] || "不明";
+
+            if (!query) return;
 
             let visitDate = "未入力";
             if (rawDate && rawDate !== "未入力") {
@@ -78,24 +75,22 @@
               visitDate = `${yyyy}/${mm}/${dd}`;
             }
 
-            const icon = icons[status] || icons["未確認"];
-            const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div style="text-align: left; line-height: 1.4;">
-                  <strong>${name}</strong><br>
-                  受け取り可否：${status}<br>
-                  前回訪問：${visitDate}　訪問者：${visitor}
-                </div>`
-            });
-
-            const query = address || name; // ← 住所が空なら施設名で検索
-            if (!query) return;
-
             geocoder.geocode({ address: query }, (results, status) => {
               if (status === "OK") {
+                const position = results[0].geometry.location;
+                const icon = icons[status] || icons["未確認"];
+                const infoWindow = new google.maps.InfoWindow({
+                  content: `
+                    <div style="text-align:left;line-height:1.4;">
+                      <strong>${name}</strong><br>
+                      受け取り可否：${status}<br>
+                      前回訪問：${visitDate}　訪問者：${visitor}
+                    </div>`
+                });
+
                 const marker = new google.maps.Marker({
                   map: map,
-                  position: results[0].geometry.location,
+                  position: position,
                   title: name,
                   icon: icon
                 });
@@ -106,24 +101,29 @@
                 });
 
                 markers.push(marker);
+
+                // サイドバーに施設名追加
+                const item = document.createElement("div");
+                item.className = "list-item";
+                item.textContent = name;
+                item.addEventListener("click", () => {
+                  map.panTo(marker.getPosition());
+                  map.setZoom(16);
+                  infoWindow.open(map, marker);
+                });
+                sidebar.appendChild(item);
+
               } else {
                 console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
               }
             });
           });
         }
-
-        function clearMarkers() {
-          markers.forEach(marker => marker.setMap(null));
-          markers = [];
-        }
       }
     </script>
   </head>
   <body>
-    <div id="search-container">
-      <input type="text" id="search-input" placeholder="施設名で検索（例：ハローワーク）">
-    </div>
+    <div id="sidebar"></div>
     <div id="map"></div>
   </body>
 </html>
