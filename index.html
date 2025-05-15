@@ -37,9 +37,10 @@
         border-bottom: 1px solid #ddd;
         padding-bottom: 4px;
       }
-      #close-button {
+      #close-button,
+      #refresh-button {
         display: block;
-        margin: 10px auto 15px;
+        margin: 10px auto 10px;
         padding: 6px 12px;
         background-color: #e74c3c;
         color: white;
@@ -49,6 +50,12 @@
       }
       #close-button:hover {
         background-color: #c0392b;
+      }
+      #refresh-button {
+        background-color: #3498db;
+      }
+      #refresh-button:hover {
+        background-color: #2980b9;
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
@@ -63,6 +70,12 @@
           center: { lat: 35.71006, lng: 139.8107 }
         });
 
+        reloadMapData(); // 初期データ読み込み
+      }
+
+      function reloadMapData() {
+        clearMapAndSidebar();
+
         const icons = {
           "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
           "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
@@ -72,104 +85,124 @@
         fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
           .then(response => response.json())
           .then(data => {
-            createMarkers(data);
+            createMarkers(data, icons);
           });
+      }
 
-        function createMarkers(data) {
-          const geocoder = new google.maps.Geocoder();
-          const sidebar = document.getElementById('sidebar');
-          const grouped = {};
+      function clearMapAndSidebar() {
+        markers.forEach(marker => marker.setMap(null));
+        markers = [];
 
-          data.forEach(entry => {
-            const district = entry['広報地区'] || "その他";
-            if (!grouped[district]) grouped[district] = [];
-            grouped[district].push(entry);
-          });
+        infoWindows.forEach(win => win.close());
+        infoWindows = [];
 
-          for (const district in grouped) {
-            const header = document.createElement("div");
-            header.className = "district-header";
-            header.textContent = `【${district}】`;
-            sidebar.appendChild(header);
+        const sidebar = document.getElementById('sidebar');
+        sidebar.innerHTML = '';
+      }
 
-            grouped[district].forEach(entry => {
-              const name = entry['施設名'];
-              const address = entry['住所'];
-              const query = address || name;
-              const status = entry['受け取り可否'] || "未確認";
-              const rawDate = entry['前回訪問'];
-              const visitor = entry['訪問者'] || "不明";
+      function createMarkers(data, icons) {
+        const geocoder = new google.maps.Geocoder();
+        const sidebar = document.getElementById('sidebar');
+        const grouped = {};
 
-              if (!query) return;
+        data.forEach(entry => {
+          const district = entry['広報地区'] || "その他";
+          if (!grouped[district]) grouped[district] = [];
+          grouped[district].push(entry);
+        });
 
-              let visitDate = "未入力";
-              if (rawDate && rawDate !== "未入力") {
-                const d = new Date(rawDate);
-                const yyyy = d.getFullYear();
-                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
-                const dd = ("0" + d.getDate()).slice(-2);
-                visitDate = `${yyyy}/${mm}/${dd}`;
+        // 🔄 更新ボタン追加
+        const refreshBtn = document.createElement("button");
+        refreshBtn.id = "refresh-button";
+        refreshBtn.textContent = "🔄 データを更新";
+        refreshBtn.addEventListener("click", () => {
+          reloadMapData();
+        });
+        sidebar.appendChild(refreshBtn);
+
+        // ❌ 一括クローズボタン追加
+        const closeBtn = document.createElement("button");
+        closeBtn.id = "close-button";
+        closeBtn.textContent = "❌ すべての吹き出しを閉じる";
+        closeBtn.addEventListener("click", () => {
+          closeAllInfoWindows();
+        });
+        sidebar.appendChild(closeBtn);
+
+        for (const district in grouped) {
+          const header = document.createElement("div");
+          header.className = "district-header";
+          header.textContent = `【${district}】`;
+          sidebar.appendChild(header);
+
+          grouped[district].forEach(entry => {
+            const name = entry['施設名'];
+            const address = entry['住所'];
+            const query = address || name;
+            const status = entry['受け取り可否'] || "未確認";
+            const rawDate = entry['前回訪問'];
+            const visitor = entry['訪問者'] || "不明";
+
+            if (!query) return;
+
+            let visitDate = "未入力";
+            if (rawDate && rawDate !== "未入力") {
+              const d = new Date(rawDate);
+              const yyyy = d.getFullYear();
+              const mm = ("0" + (d.getMonth() + 1)).slice(-2);
+              const dd = ("0" + d.getDate()).slice(-2);
+              visitDate = `${yyyy}/${mm}/${dd}`;
+            }
+
+            geocoder.geocode({ address: query }, (results, statusCode) => {
+              if (statusCode === "OK") {
+                const position = results[0].geometry.location;
+                const icon = icons[status] || icons["未確認"];
+                const infoWindow = new google.maps.InfoWindow({
+                  content: `
+                    <div style="text-align:left;line-height:1.4;">
+                      <strong>${name}</strong><br>
+                      受け取り可否：${status}<br>
+                      前回訪問：${visitDate}　訪問者：${visitor}
+                    </div>`
+                });
+
+                const marker = new google.maps.Marker({
+                  map: map,
+                  position: position,
+                  title: name,
+                  icon: icon
+                });
+
+                marker.addListener("click", () => {
+                  closeAllInfoWindows();
+                  map.panTo(marker.getPosition());
+                  infoWindow.open(map, marker);
+                });
+
+                markers.push(marker);
+                infoWindows.push(infoWindow);
+
+                const item = document.createElement("div");
+                item.className = "list-item";
+                item.textContent = name;
+                item.addEventListener("click", () => {
+                  closeAllInfoWindows();
+                  map.panTo(marker.getPosition());
+                  map.setZoom(16);
+                  infoWindow.open(map, marker);
+                });
+                sidebar.appendChild(item);
+              } else {
+                console.error("ジオコーディング失敗: " + statusCode + "（検索語句: " + query + "）");
               }
-
-              geocoder.geocode({ address: query }, (results, status) => {
-                if (status === "OK") {
-                  const position = results[0].geometry.location;
-                  const icon = icons[status] || icons["未確認"];
-                  const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                      <div style="text-align:left;line-height:1.4;">
-                        <strong>${name}</strong><br>
-                        受け取り可否：${status}<br>
-                        前回訪問：${visitDate}　訪問者：${visitor}
-                      </div>`
-                  });
-
-                  const marker = new google.maps.Marker({
-                    map: map,
-                    position: position,
-                    title: name,
-                    icon: icon
-                  });
-
-                  marker.addListener("click", () => {
-                    closeAllInfoWindows();
-                    map.panTo(marker.getPosition());
-                    infoWindow.open(map, marker);
-                  });
-
-                  markers.push(marker);
-                  infoWindows.push(infoWindow);
-
-                  const item = document.createElement("div");
-                  item.className = "list-item";
-                  item.textContent = name;
-                  item.addEventListener("click", () => {
-                    closeAllInfoWindows();
-                    map.panTo(marker.getPosition());
-                    map.setZoom(16);
-                    infoWindow.open(map, marker);
-                  });
-                  sidebar.appendChild(item);
-                } else {
-                  console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
-                }
-              });
             });
-          }
-
-          // 一括クローズボタン追加
-          const closeBtn = document.createElement("button");
-          closeBtn.id = "close-button";
-          closeBtn.textContent = "❌ すべての吹き出しを閉じる";
-          closeBtn.addEventListener("click", () => {
-            closeAllInfoWindows();
           });
-          sidebar.prepend(closeBtn);
         }
+      }
 
-        function closeAllInfoWindows() {
-          infoWindows.forEach(win => win.close());
-        }
+      function closeAllInfoWindows() {
+        infoWindows.forEach(win => win.close());
       }
     </script>
   </head>
