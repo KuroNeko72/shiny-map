@@ -44,7 +44,7 @@
       .sidebar-buttons {
         display: flex;
         justify-content: space-between;
-        gap: 8px;
+        gap: 5px;
         margin-bottom: 15px;
       }
       .sidebar-buttons button {
@@ -54,7 +54,8 @@
         border-radius: 4px;
         color: white;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
+        white-space: nowrap;
       }
       #refresh-button {
         background-color: #3498db;
@@ -67,6 +68,12 @@
       }
       #close-button:hover {
         background-color: #c0392b;
+      }
+      #showall-button {
+        background-color: #2ecc71;
+      }
+      #showall-button:hover {
+        background-color: #27ae60;
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
@@ -117,28 +124,31 @@
         const sidebar = document.getElementById('sidebar');
         const grouped = {};
 
-        // 🔘 ボタンコンテナ作成（統一）
+        // 🔘 統一ボタン配置
         const buttonContainer = document.createElement("div");
         buttonContainer.className = "sidebar-buttons";
 
         const refreshBtn = document.createElement("button");
         refreshBtn.id = "refresh-button";
         refreshBtn.textContent = "🔄 更新";
-        refreshBtn.addEventListener("click", () => {
-          reloadMapData();
-        });
+        refreshBtn.addEventListener("click", () => reloadMapData());
 
         const closeBtn = document.createElement("button");
         closeBtn.id = "close-button";
         closeBtn.textContent = "❌ 閉じる";
-        closeBtn.addEventListener("click", () => {
-          closeAllInfoWindows();
-        });
+        closeBtn.addEventListener("click", () => closeAllInfoWindows());
+
+        const showAllBtn = document.createElement("button");
+        showAllBtn.id = "showall-button";
+        showAllBtn.textContent = "📌 一括表示";
+        showAllBtn.addEventListener("click", () => showAllInfoWindows());
 
         buttonContainer.appendChild(refreshBtn);
         buttonContainer.appendChild(closeBtn);
+        buttonContainer.appendChild(showAllBtn);
         sidebar.appendChild(buttonContainer);
 
+        // 地区グループ化
         data.forEach(entry => {
           const district = entry['広報地区'] || "その他";
           if (!grouped[district]) grouped[district] = [];
@@ -230,6 +240,12 @@
 
       function closeAllInfoWindows() {
         infoWindows.forEach(win => win.close());
+      }
+
+      function showAllInfoWindows() {
+        infoWindows.forEach((win, index) => {
+          win.open(map, markers[index]);
+        });
       }
     </script>
   </head>
