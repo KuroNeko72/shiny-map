@@ -16,6 +16,7 @@
         border-right: 1px solid #ccc;
         padding: 10px;
         box-sizing: border-box;
+        background: #fafafa;
       }
       #map {
         flex: 1;
@@ -28,11 +29,33 @@
       .list-item:hover {
         background-color: #f0f0f0;
       }
+      .district-header {
+        font-weight: bold;
+        margin-top: 15px;
+        margin-bottom: 5px;
+        color: #333;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 4px;
+      }
+      #close-button {
+        display: block;
+        margin: 10px auto 15px;
+        padding: 6px 12px;
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #close-button:hover {
+        background-color: #c0392b;
+      }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
     <script>
       let map;
       let markers = [];
+      let infoWindows = [];
 
       function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -55,69 +78,97 @@
         function createMarkers(data) {
           const geocoder = new google.maps.Geocoder();
           const sidebar = document.getElementById('sidebar');
+          const grouped = {};
 
           data.forEach(entry => {
-            const name = entry['施設名'];
-            const address = entry['住所'];
-            const query = address || name;
-            const status = entry['受け取り可否'] || "未確認";
-            const rawDate = entry['前回訪問'];
-            const visitor = entry['訪問者'] || "不明";
-
-            if (!query) return;
-
-            let visitDate = "未入力";
-            if (rawDate && rawDate !== "未入力") {
-              const d = new Date(rawDate);
-              const yyyy = d.getFullYear();
-              const mm = ("0" + (d.getMonth() + 1)).slice(-2);
-              const dd = ("0" + d.getDate()).slice(-2);
-              visitDate = `${yyyy}/${mm}/${dd}`;
-            }
-
-            geocoder.geocode({ address: query }, (results, status) => {
-              if (status === "OK") {
-                const position = results[0].geometry.location;
-                const icon = icons[status] || icons["未確認"];
-                const infoWindow = new google.maps.InfoWindow({
-                  content: `
-                    <div style="text-align:left;line-height:1.4;">
-                      <strong>${name}</strong><br>
-                      受け取り可否：${status}<br>
-                      前回訪問：${visitDate}　訪問者：${visitor}
-                    </div>`
-                });
-
-                const marker = new google.maps.Marker({
-                  map: map,
-                  position: position,
-                  title: name,
-                  icon: icon
-                });
-
-                marker.addListener("click", () => {
-                  map.panTo(marker.getPosition());
-                  infoWindow.open(map, marker);
-                });
-
-                markers.push(marker);
-
-                // サイドバーに施設名追加
-                const item = document.createElement("div");
-                item.className = "list-item";
-                item.textContent = name;
-                item.addEventListener("click", () => {
-                  map.panTo(marker.getPosition());
-                  map.setZoom(16);
-                  infoWindow.open(map, marker);
-                });
-                sidebar.appendChild(item);
-
-              } else {
-                console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
-              }
-            });
+            const district = entry['広報地区'] || "その他";
+            if (!grouped[district]) grouped[district] = [];
+            grouped[district].push(entry);
           });
+
+          for (const district in grouped) {
+            const header = document.createElement("div");
+            header.className = "district-header";
+            header.textContent = `【${district}】`;
+            sidebar.appendChild(header);
+
+            grouped[district].forEach(entry => {
+              const name = entry['施設名'];
+              const address = entry['住所'];
+              const query = address || name;
+              const status = entry['受け取り可否'] || "未確認";
+              const rawDate = entry['前回訪問'];
+              const visitor = entry['訪問者'] || "不明";
+
+              if (!query) return;
+
+              let visitDate = "未入力";
+              if (rawDate && rawDate !== "未入力") {
+                const d = new Date(rawDate);
+                const yyyy = d.getFullYear();
+                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
+                const dd = ("0" + d.getDate()).slice(-2);
+                visitDate = `${yyyy}/${mm}/${dd}`;
+              }
+
+              geocoder.geocode({ address: query }, (results, status) => {
+                if (status === "OK") {
+                  const position = results[0].geometry.location;
+                  const icon = icons[status] || icons["未確認"];
+                  const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                      <div style="text-align:left;line-height:1.4;">
+                        <strong>${name}</strong><br>
+                        受け取り可否：${status}<br>
+                        前回訪問：${visitDate}　訪問者：${visitor}
+                      </div>`
+                  });
+
+                  const marker = new google.maps.Marker({
+                    map: map,
+                    position: position,
+                    title: name,
+                    icon: icon
+                  });
+
+                  marker.addListener("click", () => {
+                    closeAllInfoWindows();
+                    map.panTo(marker.getPosition());
+                    infoWindow.open(map, marker);
+                  });
+
+                  markers.push(marker);
+                  infoWindows.push(infoWindow);
+
+                  const item = document.createElement("div");
+                  item.className = "list-item";
+                  item.textContent = name;
+                  item.addEventListener("click", () => {
+                    closeAllInfoWindows();
+                    map.panTo(marker.getPosition());
+                    map.setZoom(16);
+                    infoWindow.open(map, marker);
+                  });
+                  sidebar.appendChild(item);
+                } else {
+                  console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
+                }
+              });
+            });
+          }
+
+          // 一括クローズボタン追加
+          const closeBtn = document.createElement("button");
+          closeBtn.id = "close-button";
+          closeBtn.textContent = "❌ すべての吹き出しを閉じる";
+          closeBtn.addEventListener("click", () => {
+            closeAllInfoWindows();
+          });
+          sidebar.prepend(closeBtn);
+        }
+
+        function closeAllInfoWindows() {
+          infoWindows.forEach(win => win.close());
         }
       }
     </script>
