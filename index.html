@@ -243,10 +243,22 @@
       }
 
       function showAllInfoWindows() {
+        // 吹き出し全てを開く（パンしない）
         infoWindows.forEach((win, index) => {
-          win.open(map, markers[index]);
+          win.open({
+            map: map,
+            anchor: markers[index],
+            shouldFocus: false  // ← パンやズームを無効にする
+          });
         });
-      }
+
+  // 選択ハイライトを解除
+  if (selectedListItem) {
+    selectedListItem.classList.remove("selected");
+    selectedListItem = null;
+  }
+}
+
     </script>
   </head>
   <body>
