@@ -186,11 +186,10 @@
                 const icon = icons[status] || icons["未確認"];
                 const infoWindow = new google.maps.InfoWindow({
                   content: `
-                    <div style="text-align:left; line-height:1.4; max-width:240px; white-space:normal;">
+                    <div style="text-align:left; line-height:1.4; max-width:300px;">
                       <strong>${name}</strong><br>
                       受け取り可否：${status}<br>
-                      前回訪問：${visitDate}<br>
-                      訪問者：${visitor}
+                      前回訪問：${visitDate}　訪問者：${visitor}
                     </div>`
                 });
 
