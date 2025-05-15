@@ -41,19 +41,20 @@
         border-bottom: 1px solid #ddd;
         padding-bottom: 4px;
       }
-      #close-button,
-      #refresh-button {
-        display: block;
-        margin: 10px auto 10px;
-        padding: 6px 12px;
-        background-color: #e74c3c;
-        color: white;
+      .sidebar-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+      .sidebar-buttons button {
+        flex: 1;
+        padding: 6px;
         border: none;
         border-radius: 4px;
+        color: white;
         cursor: pointer;
-      }
-      #close-button:hover {
-        background-color: #c0392b;
+        font-size: 14px;
       }
       #refresh-button {
         background-color: #3498db;
@@ -61,13 +62,19 @@
       #refresh-button:hover {
         background-color: #2980b9;
       }
+      #close-button {
+        background-color: #e74c3c;
+      }
+      #close-button:hover {
+        background-color: #c0392b;
+      }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
     <script>
       let map;
       let markers = [];
       let infoWindows = [];
-      let selectedListItem = null; // 🔸 選択中のリストアイテムを記録
+      let selectedListItem = null;
 
       function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -110,25 +117,28 @@
         const sidebar = document.getElementById('sidebar');
         const grouped = {};
 
-        // 🔄 更新ボタン
+        // 🔘 ボタンコンテナ作成（統一）
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "sidebar-buttons";
+
         const refreshBtn = document.createElement("button");
         refreshBtn.id = "refresh-button";
-        refreshBtn.textContent = "🔄 データを更新";
+        refreshBtn.textContent = "🔄 更新";
         refreshBtn.addEventListener("click", () => {
           reloadMapData();
         });
-        sidebar.appendChild(refreshBtn);
 
-        // ❌ 閉じるボタン
         const closeBtn = document.createElement("button");
         closeBtn.id = "close-button";
-        closeBtn.textContent = "❌ すべての吹き出しを閉じる";
+        closeBtn.textContent = "❌ 閉じる";
         closeBtn.addEventListener("click", () => {
           closeAllInfoWindows();
         });
-        sidebar.appendChild(closeBtn);
 
-        // 地区でグループ分け
+        buttonContainer.appendChild(refreshBtn);
+        buttonContainer.appendChild(closeBtn);
+        sidebar.appendChild(buttonContainer);
+
         data.forEach(entry => {
           const district = entry['広報地区'] || "その他";
           if (!grouped[district]) grouped[district] = [];
@@ -188,7 +198,7 @@
                   closeAllInfoWindows();
                   map.panTo(marker.getPosition());
                   infoWindow.open(map, marker);
-                  highlightSelectedItem(item); // ✅ ハイライト追加
+                  highlightSelectedItem(item);
                 });
 
                 item.addEventListener("click", () => {
@@ -196,7 +206,7 @@
                   map.panTo(marker.getPosition());
                   map.setZoom(16);
                   infoWindow.open(map, marker);
-                  highlightSelectedItem(item); // ✅ ハイライト追加
+                  highlightSelectedItem(item);
                 });
 
                 markers.push(marker);
