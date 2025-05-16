@@ -53,6 +53,10 @@
       border-radius: 4px;
       cursor: pointer;
     }
+    .district-container {
+      margin-left: 10px;
+      margin-bottom: 10px;
+    }
     .top-buttons {
       display: flex;
       justify-content: space-between;
@@ -154,6 +158,11 @@
             header.appendChild(showBtn);
             sidebar.appendChild(header);
 
+            // ✅ 各地区のリストコンテナをここで作成
+            let districtContainer = document.createElement("div");
+            districtContainer.className = "district-container";
+            sidebar.appendChild(districtContainer);
+
             grouped[currentDistrict].forEach(entry => {
               const name = entry["施設名"];
               const address = entry["住所"];
@@ -189,12 +198,6 @@
                     </div>`;
 
                   const infoWindow = new google.maps.InfoWindow({ content });
-                  content.addEventListener("click", () => {
-                    infoWindow.close();
-                    if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-                    currentlyOpenWindow = null;
-                    currentlyActiveItem = null;
-                  });
 
                   const marker = new google.maps.Marker({
                     map: map,
@@ -247,7 +250,9 @@
                   infoWindows.push(infoWindow);
                   districtMarkers.push(marker);
                   districtWindows.push(infoWindow);
-                  sidebar.appendChild(item);
+
+                  // ✅ ここを sidebar → districtContainer に変更
+                  districtContainer.appendChild(item);
                 }
               });
             });
