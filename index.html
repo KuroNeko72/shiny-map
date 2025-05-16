@@ -37,19 +37,6 @@
         border-bottom: 1px solid #ddd;
         padding-bottom: 4px;
       }
-      #close-button {
-        display: block;
-        margin: 10px auto 15px;
-        padding: 6px 12px;
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      #close-button:hover {
-        background-color: #c0392b;
-      }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
     <script>
@@ -86,6 +73,49 @@
             grouped[district].push(entry);
           });
 
+          // 一括操作ボタンコンテナを作成
+          const buttonContainer = document.createElement("div");
+          buttonContainer.style.display = "flex";
+          buttonContainer.style.justifyContent = "space-between";
+          buttonContainer.style.gap = "4px";
+          buttonContainer.style.marginBottom = "10px";
+
+          // 一括表示ボタン
+          const openBtn = document.createElement("button");
+          openBtn.textContent = "✅ 吹き出しをすべて開く";
+          openBtn.style.flex = "1";
+          openBtn.style.padding = "6px 0";
+          openBtn.style.backgroundColor = "#3498db";
+          openBtn.style.color = "white";
+          openBtn.style.border = "none";
+          openBtn.style.borderRadius = "4px";
+          openBtn.style.cursor = "pointer";
+          openBtn.addEventListener("click", () => {
+            closeAllInfoWindows();
+            for (let i = 0; i < infoWindows.length; i++) {
+              infoWindows[i].open(map, markers[i]);
+            }
+          });
+
+          // 一括非表示ボタン
+          const closeBtn = document.createElement("button");
+          closeBtn.textContent = "❌ 吹き出しをすべて閉じる";
+          closeBtn.style.flex = "1";
+          closeBtn.style.padding = "6px 0";
+          closeBtn.style.backgroundColor = "#e74c3c";
+          closeBtn.style.color = "white";
+          closeBtn.style.border = "none";
+          closeBtn.style.borderRadius = "4px";
+          closeBtn.style.cursor = "pointer";
+          closeBtn.addEventListener("click", () => {
+            closeAllInfoWindows();
+          });
+
+          // ボタンをコンテナに追加してサイドバーに追加
+          buttonContainer.appendChild(openBtn);
+          buttonContainer.appendChild(closeBtn);
+          sidebar.prepend(buttonContainer);
+
           for (const district in grouped) {
             const header = document.createElement("div");
             header.className = "district-header";
@@ -111,8 +141,8 @@
                 visitDate = `${yyyy}/${mm}/${dd}`;
               }
 
-              geocoder.geocode({ address: query }, (results, status) => {
-                if (status === "OK") {
+              geocoder.geocode({ address: query }, (results, statusCode) => {
+                if (statusCode === "OK") {
                   const position = results[0].geometry.location;
                   const icon = icons[status] || icons["未確認"];
                   const infoWindow = new google.maps.InfoWindow({
@@ -151,20 +181,11 @@
                   });
                   sidebar.appendChild(item);
                 } else {
-                  console.error("ジオコーディング失敗: " + status + "（検索語句: " + query + "）");
+                  console.error("ジオコーディング失敗: " + statusCode + "（検索語句: " + query + "）");
                 }
               });
             });
           }
-
-          // 一括クローズボタン追加
-          const closeBtn = document.createElement("button");
-          closeBtn.id = "close-button";
-          closeBtn.textContent = "❌ すべての吹き出しを閉じる";
-          closeBtn.addEventListener("click", () => {
-            closeAllInfoWindows();
-          });
-          sidebar.prepend(closeBtn);
         }
 
         function closeAllInfoWindows() {
