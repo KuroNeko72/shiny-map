@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>訪問先マップ（✕ボタン付き）</title>
+    <title>訪問先マップ（表示形式＆一括表示対応）</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
       body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
@@ -43,8 +43,9 @@
         font-size: 13px;
         max-width: 260px;
         pointer-events: auto;
-        white-space: nowrap;
-        position: relative; /* ✕ボタン配置用 */
+        white-space: pre-line;
+        position: relative;
+        font-family: monospace;
       }
       .infowindow-close {
         position: absolute;
@@ -187,12 +188,7 @@
                   item.textContent = name;
                   sidebar.appendChild(item);
 
-                  const facilityInfo = `
-                    <div>
-                      <strong>${name}</strong><br>
-                      受け取り可否：${status}<br>
-                      前回訪問：${visitDate}　訪問者：${visitor}
-                    </div>`;
+                  const facilityInfo = `${name}<br>受け取り可否:${status}<br>前回訪問:${visitDate}<br>訪問者:${visitor}`;
 
                   geocoder.geocode({ address: address || name }, (results, statusCode) => {
                     if (statusCode === "OK") {
@@ -203,11 +199,14 @@
                         title: name
                       });
 
+                      const win = new CustomInfoWindow(marker, facilityInfo);
+                      customInfoWindows.push(win); // 事前に登録しておく（重要）
+
                       function openInfoWindow() {
                         customInfoWindows.forEach(iw => iw.setMap(null));
-                        const win = new CustomInfoWindow(marker, facilityInfo);
-                        win.setMap(map);
-                        customInfoWindows.push(win);
+                        const newWin = new CustomInfoWindow(marker, facilityInfo);
+                        newWin.setMap(map);
+                        customInfoWindows.push(newWin);
                       }
 
                       marker.addListener("click", () => {
