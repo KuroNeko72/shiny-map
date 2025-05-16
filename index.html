@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>訪問先マップ</title>
     <style>
       body {
@@ -29,6 +29,9 @@
       .list-item:hover {
         background-color: #f0f0f0;
       }
+      .list-item.active {
+        background-color: #d0ebff;
+      }
       .district-header {
         font-weight: bold;
         margin-top: 15px;
@@ -43,32 +46,34 @@
       let map;
       let markers = [];
       let infoWindows = [];
+      let currentlyOpenWindow = null;
+      let currentlyActiveItem = null;
 
       function initMap() {
-        map = new google.maps.Map(document.getElementById('map'), {
+        map = new google.maps.Map(document.getElementById("map"), {
           zoom: 13,
-          center: { lat: 35.71006, lng: 139.8107 }
+          center: { lat: 35.71006, lng: 139.8107 },
         });
 
         const icons = {
-          "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-          "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-          "未確認": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+          可: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+          不可: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          未確認: "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
         };
 
         fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
-          .then(response => response.json())
-          .then(data => {
+          .then((response) => response.json())
+          .then((data) => {
             createMarkers(data);
           });
 
         function createMarkers(data) {
           const geocoder = new google.maps.Geocoder();
-          const sidebar = document.getElementById('sidebar');
+          const sidebar = document.getElementById("sidebar");
           const grouped = {};
 
-          data.forEach(entry => {
-            const district = entry['広報地区'] || "その他";
+          data.forEach((entry) => {
+            const district = entry["広報地区"] || "その他";
             if (!grouped[district]) grouped[district] = [];
             grouped[district].push(entry);
           });
@@ -83,8 +88,13 @@
           const openBtn = document.createElement("button");
           openBtn.textContent = "✅ 吹き出しをすべて開く";
           Object.assign(openBtn.style, {
-            flex: "1", padding: "6px 0", backgroundColor: "#3498db", color: "white",
-            border: "none", borderRadius: "4px", cursor: "pointer"
+            flex: "1",
+            padding: "6px 0",
+            backgroundColor: "#3498db",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
           });
           openBtn.addEventListener("click", () => {
             openAllInfoWindows();
@@ -93,8 +103,13 @@
           const closeBtn = document.createElement("button");
           closeBtn.textContent = "❌ 吹き出しをすべて閉じる";
           Object.assign(closeBtn.style, {
-            flex: "1", padding: "6px 0", backgroundColor: "#e74c3c", color: "white",
-            border: "none", borderRadius: "4px", cursor: "pointer"
+            flex: "1",
+            padding: "6px 0",
+            backgroundColor: "#e74c3c",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
           });
           closeBtn.addEventListener("click", () => {
             closeAllInfoWindows();
@@ -105,11 +120,13 @@
           sidebar.prepend(buttonContainer);
 
           let geocodeCount = 0;
-          const filteredEntries = Object.values(grouped).flat().filter(e => e['住所']);
-          const totalEntries = filteredEntries.length;
+          const entriesWithAddress = Object.values(grouped)
+            .flat()
+            .filter((e) => e["住所"]);
+          const totalEntries = entriesWithAddress.length;
 
           for (const district in grouped) {
-            const entries = grouped[district].filter(e => e['住所']);
+            const entries = grouped[district].filter((e) => e["住所"]);
             if (entries.length === 0) continue;
 
             const header = document.createElement("div");
@@ -117,14 +134,14 @@
             header.textContent = `【${district}】`;
             sidebar.appendChild(header);
 
-            entries.forEach(entry => {
-              const name = entry['施設名'];
-              const address = entry['住所'];
+            entries.forEach((entry) => {
+              const name = entry["施設名"];
+              const address = entry["住所"];
               if (!address) return;
 
-              const status = entry['受け取り可否'] || "未確認";
-              const rawDate = entry['前回訪問'];
-              const visitor = entry['訪問者'] || "不明";
+              const status = entry["受け取り可否"] || "未確認";
+              const rawDate = entry["前回訪問"];
+              const visitor = entry["訪問者"] || "不明";
 
               let visitDate = "未入力";
               if (rawDate && rawDate !== "未入力") {
@@ -150,39 +167,61 @@
                           受け取り可否：${status}<br>
                           前回訪問：${visitDate}　訪問者：${visitor}
                         </div>
-                      </div>`
+                      </div>`,
                   });
 
                   const marker = new google.maps.Marker({
                     map: map,
                     position: position,
                     title: name,
-                    icon: icon
+                    icon: icon,
                   });
 
+                  // 🔁 ピンクリック時：トグル表示、画面移動なし
                   marker.addListener("click", () => {
-                    const isOpen = infoWindow.getMap();
-                    if (isOpen) {
+                    if (currentlyOpenWindow === infoWindow) {
                       infoWindow.close();
+                      currentlyOpenWindow = null;
+                      if (currentlyActiveItem) {
+                        currentlyActiveItem.classList.remove("active");
+                        currentlyActiveItem = null;
+                      }
                     } else {
-                      closeAllInfoWindows();
+                      if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
+                      currentlyOpenWindow = infoWindow;
+
+                      if (currentlyActiveItem)
+                        currentlyActiveItem.classList.remove("active");
+                      item.classList.add("active");
+                      currentlyActiveItem = item;
                     }
                   });
-
-                  markers.push(marker);
-                  infoWindows.push(infoWindow);
 
                   const item = document.createElement("div");
                   item.className = "list-item";
                   item.textContent = name;
                   item.addEventListener("click", () => {
-                    closeAllInfoWindows();
-                    infoWindow.open(map, marker);
+                    if (currentlyOpenWindow === infoWindow) {
+                      infoWindow.close();
+                      currentlyOpenWindow = null;
+                      item.classList.remove("active");
+                      currentlyActiveItem = null;
+                    } else {
+                      if (currentlyOpenWindow) currentlyOpenWindow.close();
+                      infoWindow.open(map, marker);
+                      currentlyOpenWindow = infoWindow;
+
+                      if (currentlyActiveItem)
+                        currentlyActiveItem.classList.remove("active");
+                      item.classList.add("active");
+                      currentlyActiveItem = item;
+                    }
                   });
+
+                  markers.push(marker);
+                  infoWindows.push(infoWindow);
                   sidebar.appendChild(item);
-                } else {
-                  console.warn("Geocode失敗: " + statusCode + " / " + address);
                 }
 
                 if (geocodeCount === totalEntries) {
@@ -193,13 +232,17 @@
           }
 
           function closeAllInfoWindows() {
-            infoWindows.forEach(win => win.close());
+            infoWindows.forEach((win) => win.close());
+            currentlyOpenWindow = null;
+            if (currentlyActiveItem)
+              currentlyActiveItem.classList.remove("active");
+            currentlyActiveItem = null;
           }
 
           function openAllInfoWindows() {
             closeAllInfoWindows();
             const bounds = new google.maps.LatLngBounds();
-            markers.forEach(marker => bounds.extend(marker.getPosition()));
+            markers.forEach((marker) => bounds.extend(marker.getPosition()));
             map.fitBounds(bounds);
             infoWindows.forEach((win, idx) => {
               win.open(map, markers[idx]);
