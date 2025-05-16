@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>訪問先マップ（表示形式＆一括表示対応）</title>
+    <title>訪問先マップ（位置調整対応）</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
       body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
@@ -68,6 +68,7 @@
             this.content = content;
             this.div = null;
           }
+
           onAdd() {
             this.div = document.createElement('div');
             this.div.className = 'custom-infowindow';
@@ -85,14 +86,18 @@
 
             this.getPanes().floatPane.appendChild(this.div);
           }
+
           draw() {
             const projection = this.getProjection();
             const pos = projection.fromLatLngToDivPixel(this.marker.getPosition());
             if (this.div) {
-              this.div.style.left = pos.x + 'px';
-              this.div.style.top = (pos.y - 40) + 'px';
+              const width = this.div.offsetWidth;
+              const height = this.div.offsetHeight;
+              this.div.style.left = (pos.x - width / 2) + 'px';   // 中央揃え
+              this.div.style.top = (pos.y - height) + 'px';        // ピンの上に合わせる
             }
           }
+
           onRemove() {
             if (this.div) this.div.remove();
           }
@@ -200,7 +205,7 @@
                       });
 
                       const win = new CustomInfoWindow(marker, facilityInfo);
-                      customInfoWindows.push(win); // 事前に登録しておく（重要）
+                      customInfoWindows.push(win); // 一括表示に備えて保存
 
                       function openInfoWindow() {
                         customInfoWindows.forEach(iw => iw.setMap(null));
