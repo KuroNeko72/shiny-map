@@ -158,7 +158,6 @@
             header.appendChild(showBtn);
             sidebar.appendChild(header);
 
-            // ✅ 各地区のリストコンテナをここで作成
             let districtContainer = document.createElement("div");
             districtContainer.className = "district-container";
             sidebar.appendChild(districtContainer);
@@ -185,19 +184,31 @@
                 if (statusCode === "OK") {
                   const position = results[0].geometry.location;
 
-                  const content = document.createElement("div");
-                  content.style.maxWidth = "250px";
-                  content.style.cursor = "pointer";
-                  content.innerHTML = `
-                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">
-                      ${name}
-                    </div>
-                    <div style="font-size: 13px; line-height: 1.4;">
-                      受け取り可否：${status}<br>
-                      前回訪問：${visitDate}　訪問者：${visitor}
+                  const infoContent = `
+                    <div class="custom-infowindow" style="max-width: 250px; cursor: pointer;">
+                      <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">
+                        ${name}
+                      </div>
+                      <div style="font-size: 13px; line-height: 1.4;">
+                        受け取り可否：${status}<br>
+                        前回訪問：${visitDate}　訪問者：${visitor}
+                      </div>
                     </div>`;
 
-                  const infoWindow = new google.maps.InfoWindow({ content });
+                  const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+                  // InfoWindowをクリックで閉じる処理
+                  infoWindow.addListener("domready", () => {
+                    const el = document.querySelector(".custom-infowindow");
+                    if (el) {
+                      el.addEventListener("click", () => {
+                        infoWindow.close();
+                        if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+                        currentlyOpenWindow = null;
+                        currentlyActiveItem = null;
+                      });
+                    }
+                  });
 
                   const marker = new google.maps.Marker({
                     map: map,
@@ -251,7 +262,6 @@
                   districtMarkers.push(marker);
                   districtWindows.push(infoWindow);
 
-                  // ✅ ここを sidebar → districtContainer に変更
                   districtContainer.appendChild(item);
                 }
               });
