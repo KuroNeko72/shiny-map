@@ -105,18 +105,22 @@
           sidebar.prepend(buttonContainer);
 
           let geocodeCount = 0;
-          const totalEntries = Object.values(grouped).flat().filter(e => e['住所']).length;
+          const filteredEntries = Object.values(grouped).flat().filter(e => e['住所']);
+          const totalEntries = filteredEntries.length;
 
           for (const district in grouped) {
+            const entries = grouped[district].filter(e => e['住所']);
+            if (entries.length === 0) continue;
+
             const header = document.createElement("div");
             header.className = "district-header";
             header.textContent = `【${district}】`;
             sidebar.appendChild(header);
 
-            grouped[district].forEach(entry => {
+            entries.forEach(entry => {
               const name = entry['施設名'];
               const address = entry['住所'];
-              if (!address) return; // ✅ 住所がなければスキップ
+              if (!address) return;
 
               const status = entry['受け取り可否'] || "未確認";
               const rawDate = entry['前回訪問'];
