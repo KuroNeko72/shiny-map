@@ -146,12 +146,20 @@
 
             const showBtn = document.createElement("button");
             showBtn.textContent = "一覧表示";
+            let isOpen = false;
 
             const districtMarkers = [];
             const districtWindows = [];
 
             showBtn.onclick = () => {
-              districtWindows.forEach((win, i) => win.open(map, districtMarkers[i]));
+              if (isOpen) {
+                districtWindows.forEach(win => win.close());
+                showBtn.textContent = "一覧表示";
+              } else {
+                districtWindows.forEach((win, i) => win.open(map, districtMarkers[i]));
+                showBtn.textContent = "閉じる";
+              }
+              isOpen = !isOpen;
             };
 
             header.appendChild(title);
@@ -197,15 +205,16 @@
 
                   const infoWindow = new google.maps.InfoWindow({ content: infoContent });
 
-                  // InfoWindowをクリックで閉じる処理
                   infoWindow.addListener("domready", () => {
                     const el = document.querySelector(".custom-infowindow");
                     if (el) {
                       el.addEventListener("click", () => {
                         infoWindow.close();
-                        if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-                        currentlyOpenWindow = null;
-                        currentlyActiveItem = null;
+                        if (currentlyActiveItem && currentlyOpenWindow === infoWindow) {
+                          currentlyActiveItem.classList.remove("active");
+                          currentlyActiveItem = null;
+                          currentlyOpenWindow = null;
+                        }
                       });
                     }
                   });
@@ -222,7 +231,8 @@
                   item.textContent = name;
 
                   marker.addListener("click", () => {
-                    if (currentlyOpenWindow === infoWindow) {
+                    const isSameWindow = (currentlyOpenWindow === infoWindow);
+                    if (isSameWindow) {
                       infoWindow.close();
                       currentlyOpenWindow = null;
                       if (currentlyActiveItem) {
@@ -233,15 +243,15 @@
                       if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
                       currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem)
-                        currentlyActiveItem.classList.remove("active");
+                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
                       item.classList.add("active");
                       currentlyActiveItem = item;
                     }
                   });
 
                   item.addEventListener("click", () => {
-                    if (currentlyOpenWindow === infoWindow) {
+                    const isSameWindow = (currentlyOpenWindow === infoWindow);
+                    if (isSameWindow) {
                       infoWindow.close();
                       currentlyOpenWindow = null;
                       item.classList.remove("active");
@@ -250,8 +260,7 @@
                       if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
                       currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem)
-                        currentlyActiveItem.classList.remove("active");
+                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
                       item.classList.add("active");
                       currentlyActiveItem = item;
                     }
