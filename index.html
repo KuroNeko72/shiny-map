@@ -90,10 +90,18 @@
           openBtn.style.border = "none";
           openBtn.style.borderRadius = "4px";
           openBtn.style.cursor = "pointer";
-          openBtn.addEventListener("click", () => {
+          openBtn.addEventListener("click", async () => {
             closeAllInfoWindows();
             for (let i = 0; i < infoWindows.length; i++) {
-              infoWindows[i].open(map, markers[i]);
+              const marker = markers[i];
+              const infoWindow = infoWindows[i];
+
+              // 吹き出しの表示位置が中央からずれないように、map.panBy で調整
+              map.setCenter(marker.getPosition());
+              await new Promise(resolve => setTimeout(resolve, 300)); // ズレ防止のため待機
+              map.panBy(150, 0); // サイドバー分右にずらす
+
+              infoWindow.open(map, marker);
             }
           });
 
