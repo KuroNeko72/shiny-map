@@ -166,7 +166,7 @@
             header.appendChild(showBtn);
             sidebar.appendChild(header);
 
-            let districtContainer = document.createElement("div");
+            const districtContainer = document.createElement("div");
             districtContainer.className = "district-container";
             sidebar.appendChild(districtContainer);
 
@@ -175,6 +175,7 @@
               const address = entry["住所"];
               if (!address) return;
 
+              const safeId = name.replace(/[^a-zA-Z0-9]/g, "_");
               const status = entry["受け取り可否"] || "未確認";
               const rawDate = entry["前回訪問"];
               const visitor = entry["訪問者"] || "不明";
@@ -193,7 +194,7 @@
                   const position = results[0].geometry.location;
 
                   const infoContent = `
-                    <div class="custom-infowindow" style="max-width: 250px; cursor: pointer;">
+                    <div id="info_${safeId}" style="max-width: 250px; cursor: pointer;">
                       <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">
                         ${name}
                       </div>
@@ -206,14 +207,14 @@
                   const infoWindow = new google.maps.InfoWindow({ content: infoContent });
 
                   infoWindow.addListener("domready", () => {
-                    const el = document.querySelector(".custom-infowindow");
+                    const el = document.getElementById(`info_${safeId}`);
                     if (el) {
                       el.addEventListener("click", () => {
                         infoWindow.close();
-                        if (currentlyActiveItem && currentlyOpenWindow === infoWindow) {
+                        if (currentlyOpenWindow === infoWindow && currentlyActiveItem) {
                           currentlyActiveItem.classList.remove("active");
-                          currentlyActiveItem = null;
                           currentlyOpenWindow = null;
+                          currentlyActiveItem = null;
                         }
                       });
                     }
@@ -231,14 +232,12 @@
                   item.textContent = name;
 
                   marker.addListener("click", () => {
-                    const isSameWindow = (currentlyOpenWindow === infoWindow);
-                    if (isSameWindow) {
+                    const isSame = (currentlyOpenWindow === infoWindow);
+                    if (isSame) {
                       infoWindow.close();
                       currentlyOpenWindow = null;
-                      if (currentlyActiveItem) {
-                        currentlyActiveItem.classList.remove("active");
-                        currentlyActiveItem = null;
-                      }
+                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+                      currentlyActiveItem = null;
                     } else {
                       if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
@@ -250,8 +249,8 @@
                   });
 
                   item.addEventListener("click", () => {
-                    const isSameWindow = (currentlyOpenWindow === infoWindow);
-                    if (isSameWindow) {
+                    const isSame = (currentlyOpenWindow === infoWindow);
+                    if (isSame) {
                       infoWindow.close();
                       currentlyOpenWindow = null;
                       item.classList.remove("active");
@@ -270,7 +269,6 @@
                   infoWindows.push(infoWindow);
                   districtMarkers.push(marker);
                   districtWindows.push(infoWindow);
-
                   districtContainer.appendChild(item);
                 }
               });
