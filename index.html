@@ -142,10 +142,14 @@
                   const icon = icons[status] || icons["未確認"];
                   const infoWindow = new google.maps.InfoWindow({
                     content: `
-                      <div style="text-align:left;line-height:1.4;">
-                        <strong>${name}</strong><br>
-                        受け取り可否：${status}<br>
-                        前回訪問：${visitDate}　訪問者：${visitor}
+                      <div style="max-width: 250px;">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">
+                          ${name}
+                        </div>
+                        <div style="font-size: 13px; line-height: 1.4;">
+                          受け取り可否：${status}<br>
+                          前回訪問：${visitDate}　訪問者：${visitor}
+                        </div>
                       </div>`
                   });
 
@@ -157,9 +161,13 @@
                   });
 
                   marker.addListener("click", () => {
-                    closeAllInfoWindows();
-                    map.panTo(marker.getPosition());
-                    infoWindow.open(map, marker);
+                    const isOpen = infoWindow.getMap();
+                    if (isOpen) {
+                      infoWindow.close();
+                    } else {
+                      closeAllInfoWindows();
+                      infoWindow.open(map, marker);
+                    }
                   });
 
                   markers.push(marker);
@@ -170,8 +178,6 @@
                   item.textContent = name;
                   item.addEventListener("click", () => {
                     closeAllInfoWindows();
-                    map.panTo(marker.getPosition());
-                    map.setZoom(16);
                     infoWindow.open(map, marker);
                   });
                   sidebar.appendChild(item);
