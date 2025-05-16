@@ -2,7 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>訪問先マップ（完全修正）</title>
+    <title>訪問先マップ（✕ボタン付き）</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
       body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
       #sidebar {
@@ -33,9 +34,28 @@
       #close-button { background-color: #e74c3c; }
       #showall-button { background-color: #2ecc71; }
       .custom-infowindow {
-        position: absolute; background: white; border: 1px solid #ccc;
-        padding: 8px; border-radius: 6px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
-        font-size: 13px; max-width: 260px; pointer-events: auto; white-space: nowrap;
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        padding: 8px;
+        border-radius: 6px;
+        box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+        font-size: 13px;
+        max-width: 260px;
+        pointer-events: auto;
+        white-space: nowrap;
+        position: relative; /* ✕ボタン配置用 */
+      }
+      .infowindow-close {
+        position: absolute;
+        top: 4px;
+        right: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        color: #888;
+      }
+      .infowindow-close:hover {
+        color: #000;
       }
     </style>
     <script>
@@ -50,15 +70,26 @@
           onAdd() {
             this.div = document.createElement('div');
             this.div.className = 'custom-infowindow';
-            this.div.innerHTML = this.content;
+
+            const closeBtn = document.createElement('div');
+            closeBtn.className = 'infowindow-close';
+            closeBtn.textContent = '×';
+            closeBtn.onclick = () => this.setMap(null);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.innerHTML = this.content;
+
+            this.div.appendChild(closeBtn);
+            this.div.appendChild(contentDiv);
+
             this.getPanes().floatPane.appendChild(this.div);
           }
           draw() {
             const projection = this.getProjection();
-            const position = projection.fromLatLngToDivPixel(this.marker.getPosition());
+            const pos = projection.fromLatLngToDivPixel(this.marker.getPosition());
             if (this.div) {
-              this.div.style.left = position.x + 'px';
-              this.div.style.top = (position.y - 40) + 'px';
+              this.div.style.left = pos.x + 'px';
+              this.div.style.top = (pos.y - 40) + 'px';
             }
           }
           onRemove() {
@@ -75,35 +106,32 @@
         let customInfoWindows = [];
         let selectedListItem = null;
 
-        function highlightSelectedItem(newItem) {
-          if (selectedListItem) {
-            selectedListItem.classList.remove("selected");
-          }
-          newItem.classList.add("selected");
-          selectedListItem = newItem;
+        function highlightSelectedItem(item) {
+          if (selectedListItem) selectedListItem.classList.remove("selected");
+          item.classList.add("selected");
+          selectedListItem = item;
         }
 
-        function clearMapAndSidebar() {
+        function clearAll() {
           markers.forEach(marker => marker.setMap(null));
           markers = [];
           customInfoWindows.forEach(iw => iw.setMap(null));
           customInfoWindows = [];
           document.getElementById("sidebar").innerHTML = '';
-          selectedListItem = null;
         }
 
         function reloadMapData() {
-          clearMapAndSidebar();
+          clearAll();
 
           fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
               const geocoder = new google.maps.Geocoder();
               const sidebar = document.getElementById("sidebar");
               const grouped = {};
 
-              const btns = document.createElement("div");
-              btns.className = "sidebar-buttons";
+              const btnRow = document.createElement("div");
+              btnRow.className = "sidebar-buttons";
 
               const refresh = document.createElement("button");
               refresh.id = "refresh-button";
@@ -126,8 +154,8 @@
                 }
               };
 
-              btns.append(refresh, close, show);
-              sidebar.appendChild(btns);
+              btnRow.append(refresh, close, show);
+              sidebar.appendChild(btnRow);
 
               data.forEach(entry => {
                 const district = entry["広報地区"] || "その他";
@@ -148,7 +176,7 @@
                   const rawDate = entry["前回訪問"];
                   const visitor = entry["訪問者"] || "不明";
 
-                  if (!address && !name) return;
+                  if (!name && !address) return;
 
                   const visitDate = rawDate && rawDate !== "未入力"
                     ? new Date(rawDate).toISOString().split("T")[0].replace(/-/g, "/")
@@ -159,10 +187,12 @@
                   item.textContent = name;
                   sidebar.appendChild(item);
 
-                  const facilityName = name;
-                  const facilityStatus = status;
-                  const facilityDate = visitDate;
-                  const facilityVisitor = visitor;
+                  const facilityInfo = `
+                    <div>
+                      <strong>${name}</strong><br>
+                      受け取り可否：${status}<br>
+                      前回訪問：${visitDate}　訪問者：${visitor}
+                    </div>`;
 
                   geocoder.geocode({ address: address || name }, (results, statusCode) => {
                     if (statusCode === "OK") {
@@ -170,30 +200,23 @@
                       const marker = new google.maps.Marker({
                         position,
                         map,
-                        title: facilityName
+                        title: name
                       });
 
-                      const content = `
-                        <div>
-                          <strong>${facilityName}</strong><br>
-                          受け取り可否：${facilityStatus}<br>
-                          前回訪問：${facilityDate}　訪問者：${facilityVisitor}
-                        </div>`;
-
-                      const openInfo = () => {
+                      function openInfoWindow() {
                         customInfoWindows.forEach(iw => iw.setMap(null));
-                        const newWin = new CustomInfoWindow(marker, content);
-                        newWin.setMap(map);
-                        customInfoWindows.push(newWin);
-                      };
+                        const win = new CustomInfoWindow(marker, facilityInfo);
+                        win.setMap(map);
+                        customInfoWindows.push(win);
+                      }
 
                       marker.addListener("click", () => {
-                        openInfo();
+                        openInfoWindow();
                         highlightSelectedItem(item);
                       });
 
                       item.addEventListener("click", () => {
-                        openInfo();
+                        openInfoWindow();
                         highlightSelectedItem(item);
                       });
 
