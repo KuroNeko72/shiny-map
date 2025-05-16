@@ -1,243 +1,251 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>訪問先マップ（ウィンド位置・幅・多重防止）</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <style>
-      body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
-      #sidebar {
-        width: 300px; overflow-y: auto; border-right: 1px solid #ccc;
-        padding: 10px; box-sizing: border-box; background: #fafafa;
-      }
-      #map { flex: 1; }
-      .list-item {
-        padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee;
-      }
-      .list-item:hover { background-color: #f0f0f0; }
-      .list-item.selected {
-        background-color: #ffeaa7; font-weight: bold;
-      }
-      .district-header {
-        font-weight: bold; margin-top: 15px; margin-bottom: 5px;
-        color: #333; border-bottom: 1px solid #ddd; padding-bottom: 4px;
-      }
-      .sidebar-buttons {
-        display: flex; justify-content: space-between;
-        gap: 5px; margin-bottom: 15px;
-      }
-      .sidebar-buttons button {
-        flex: 1; padding: 6px; border: none; border-radius: 4px;
-        color: white; cursor: pointer; font-size: 13px; white-space: nowrap;
-      }
-      #refresh-button { background-color: #3498db; }
-      #close-button { background-color: #e74c3c; }
-      #showall-button { background-color: #2ecc71; }
-      .custom-infowindow {
-        position: absolute;
-        background: white;
-        border: 1px solid #ccc;
-        padding: 8px;
-        border-radius: 6px;
-        box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
-        font-size: 13px;
-        max-width: 200px;              /* ✅ 横幅を抑える */
-        word-break: break-word;        /* ✅ 折返し */
-        white-space: pre-line;
-        position: relative;
-        font-family: sans-serif;       /* ✅ 視認性向上 */
-        line-height: 1.4;
-      }
-      .infowindow-close {
-        position: absolute;
-        top: 4px;
-        right: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        color: #888;
-      }
-      .infowindow-close:hover {
-        color: #000;
-      }
-    </style>
-    <script>
-      function initMap() {
-        class CustomInfoWindow extends google.maps.OverlayView {
-          constructor(marker, content) {
-            super();
-            this.marker = marker;
-            this.content = content;
-            this.div = null;
+<head>
+  <meta charset="utf-8" />
+  <title>訪問先マップ（表示位置修正済み）</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
+    #sidebar {
+      width: 300px; overflow-y: auto; border-right: 1px solid #ccc;
+      padding: 10px; box-sizing: border-box; background: #fafafa;
+    }
+    #map { flex: 1; }
+    .list-item {
+      padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee;
+    }
+    .list-item:hover { background-color: #f0f0f0; }
+    .list-item.selected {
+      background-color: #ffeaa7; font-weight: bold;
+    }
+    .district-header {
+      font-weight: bold; margin-top: 15px; margin-bottom: 5px;
+      color: #333; border-bottom: 1px solid #ddd; padding-bottom: 4px;
+    }
+    .sidebar-buttons {
+      display: flex; justify-content: space-between;
+      gap: 5px; margin-bottom: 15px;
+    }
+    .sidebar-buttons button {
+      flex: 1; padding: 6px; border: none; border-radius: 4px;
+      color: white; cursor: pointer; font-size: 13px; white-space: nowrap;
+    }
+    #refresh-button { background-color: #3498db; }
+    #close-button { background-color: #e74c3c; }
+    #showall-button { background-color: #2ecc71; }
+    .custom-infowindow {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 8px;
+      border-radius: 6px;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+      font-size: 13px;
+      max-width: 200px;
+      word-break: break-word;
+      white-space: pre-line;
+      font-family: sans-serif;
+      line-height: 1.4;
+      pointer-events: auto;
+    }
+    .infowindow-close {
+      position: absolute;
+      top: 4px;
+      right: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #888;
+    }
+    .infowindow-close:hover {
+      color: #000;
+    }
+  </style>
+  <script>
+    function initMap() {
+      class CustomInfoWindow extends google.maps.OverlayView {
+        constructor(marker, content) {
+          super();
+          this.marker = marker;
+          this.content = content;
+          this.div = null;
+        }
+
+        onAdd() {
+          this.div = document.createElement('div');
+          this.div.className = 'custom-infowindow';
+
+          const closeBtn = document.createElement('div');
+          closeBtn.className = 'infowindow-close';
+          closeBtn.textContent = '×';
+          closeBtn.onclick = () => this.setMap(null);
+
+          const contentDiv = document.createElement('div');
+          contentDiv.innerHTML = this.content;
+
+          this.div.appendChild(closeBtn);
+          this.div.appendChild(contentDiv);
+
+          this.getPanes().floatPane.appendChild(this.div);
+
+          // ⚠️ 描画後に位置を調整（DOMが確定してから）
+          setTimeout(() => this.updatePosition(), 0);
+        }
+
+        updatePosition() {
+          const projection = this.getProjection();
+          const pos = projection.fromLatLngToDivPixel(this.marker.getPosition());
+
+          if (this.div) {
+            const width = this.div.offsetWidth;
+            const height = this.div.offsetHeight;
+            this.div.style.left = (pos.x - width / 2) + 'px';
+            this.div.style.top = (pos.y - height) + 'px';
           }
-          onAdd() {
-            this.div = document.createElement('div');
-            this.div.className = 'custom-infowindow';
+        }
 
-            const closeBtn = document.createElement('div');
-            closeBtn.className = 'infowindow-close';
-            closeBtn.textContent = '×';
-            closeBtn.onclick = () => this.setMap(null);
+        draw() {
+          // draw内での位置調整は不要（安定しないため）
+        }
 
-            const contentDiv = document.createElement('div');
-            contentDiv.innerHTML = this.content;
+        onRemove() {
+          if (this.div) this.div.remove();
+        }
+      }
 
-            this.div.appendChild(closeBtn);
-            this.div.appendChild(contentDiv);
+      const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 13,
+        center: { lat: 35.71006, lng: 139.8107 }
+      });
 
-            this.getPanes().floatPane.appendChild(this.div);
-          }
-          draw() {
-            const projection = this.getProjection();
-            const pos = projection.fromLatLngToDivPixel(this.marker.getPosition());
+      let markers = [];
+      let infoMap = new Map();
+      let selectedListItem = null;
 
-            if (this.div) {
-              requestAnimationFrame(() => {
-                const width = this.div.offsetWidth;
-                const height = this.div.offsetHeight;
-                this.div.style.left = (pos.x - width / 2) + 'px';
-                this.div.style.top = (pos.y - height) + 'px';
+      function highlightSelectedItem(item) {
+        if (selectedListItem) selectedListItem.classList.remove("selected");
+        item.classList.add("selected");
+        selectedListItem = item;
+      }
+
+      function clearAll() {
+        markers.forEach(marker => marker.setMap(null));
+        infoMap.forEach(iw => iw.setMap(null));
+        markers = [];
+        infoMap.clear();
+        document.getElementById("sidebar").innerHTML = '';
+      }
+
+      function reloadMapData() {
+        clearAll();
+
+        fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
+          .then(res => res.json())
+          .then(data => {
+            const geocoder = new google.maps.Geocoder();
+            const sidebar = document.getElementById("sidebar");
+            const grouped = {};
+
+            const btnRow = document.createElement("div");
+            btnRow.className = "sidebar-buttons";
+
+            const refresh = document.createElement("button");
+            refresh.id = "refresh-button";
+            refresh.textContent = "🔄 更新";
+            refresh.onclick = reloadMapData;
+
+            const close = document.createElement("button");
+            close.id = "close-button";
+            close.textContent = "❌ 閉じる";
+            close.onclick = () => infoMap.forEach(iw => iw.setMap(null));
+
+            const show = document.createElement("button");
+            show.id = "showall-button";
+            show.textContent = "📌 一括表示";
+            show.onclick = () => {
+              infoMap.forEach(iw => iw.setMap(map));
+              if (selectedListItem) {
+                selectedListItem.classList.remove("selected");
+                selectedListItem = null;
+              }
+            };
+
+            btnRow.append(refresh, close, show);
+            sidebar.appendChild(btnRow);
+
+            data.forEach(entry => {
+              const district = entry["広報地区"] || "その他";
+              if (!grouped[district]) grouped[district] = [];
+              grouped[district].push(entry);
+            });
+
+            for (const district in grouped) {
+              const header = document.createElement("div");
+              header.className = "district-header";
+              header.textContent = `【${district}】`;
+              sidebar.appendChild(header);
+
+              grouped[district].forEach(entry => {
+                const name = entry["施設名"];
+                const address = entry["住所"];
+                const status = entry["受け取り可否"] || "未確認";
+                const rawDate = entry["前回訪問"];
+                const visitor = entry["訪問者"] || "不明";
+
+                if (!name && !address) return;
+
+                const visitDate = rawDate && rawDate !== "未入力"
+                  ? new Date(rawDate).toISOString().split("T")[0].replace(/-/g, "/")
+                  : "未入力";
+
+                const item = document.createElement("div");
+                item.className = "list-item";
+                item.textContent = name;
+                sidebar.appendChild(item);
+
+                const facilityInfo = `${name}<br>受け取り可否:${status}<br>前回訪問:${visitDate}<br>訪問者:${visitor}`;
+
+                geocoder.geocode({ address: address || name }, (results, statusCode) => {
+                  if (statusCode === "OK") {
+                    const position = results[0].geometry.location;
+                    const marker = new google.maps.Marker({
+                      position,
+                      map,
+                      title: name
+                    });
+
+                    const win = new CustomInfoWindow(marker, facilityInfo);
+                    infoMap.set(marker, win);
+
+                    const showInfo = () => {
+                      infoMap.forEach(iw => iw.setMap(null));
+                      win.setMap(map);
+                    };
+
+                    marker.addListener("click", () => {
+                      showInfo();
+                      highlightSelectedItem(item);
+                    });
+
+                    item.addEventListener("click", () => {
+                      showInfo();
+                      highlightSelectedItem(item);
+                    });
+
+                    markers.push(marker);
+                  }
+                });
               });
             }
-          }
-          onRemove() {
-            if (this.div) this.div.remove();
-          }
-        }
-
-        const map = new google.maps.Map(document.getElementById("map"), {
-          zoom: 13,
-          center: { lat: 35.71006, lng: 139.8107 }
-        });
-
-        let markers = [];
-        let infoMap = new Map(); // ✅ marker に対応する 1つの InfoWindow を保持
-        let selectedListItem = null;
-
-        function highlightSelectedItem(item) {
-          if (selectedListItem) selectedListItem.classList.remove("selected");
-          item.classList.add("selected");
-          selectedListItem = item;
-        }
-
-        function clearAll() {
-          markers.forEach(marker => marker.setMap(null));
-          infoMap.forEach(iw => iw.setMap(null));
-          markers = [];
-          infoMap.clear();
-          document.getElementById("sidebar").innerHTML = '';
-        }
-
-        function reloadMapData() {
-          clearAll();
-
-          fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
-            .then(res => res.json())
-            .then(data => {
-              const geocoder = new google.maps.Geocoder();
-              const sidebar = document.getElementById("sidebar");
-              const grouped = {};
-
-              const btnRow = document.createElement("div");
-              btnRow.className = "sidebar-buttons";
-
-              const refresh = document.createElement("button");
-              refresh.id = "refresh-button";
-              refresh.textContent = "🔄 更新";
-              refresh.onclick = reloadMapData;
-
-              const close = document.createElement("button");
-              close.id = "close-button";
-              close.textContent = "❌ 閉じる";
-              close.onclick = () => infoMap.forEach(iw => iw.setMap(null));
-
-              const show = document.createElement("button");
-              show.id = "showall-button";
-              show.textContent = "📌 一括表示";
-              show.onclick = () => {
-                infoMap.forEach(iw => iw.setMap(map));
-                if (selectedListItem) {
-                  selectedListItem.classList.remove("selected");
-                  selectedListItem = null;
-                }
-              };
-
-              btnRow.append(refresh, close, show);
-              sidebar.appendChild(btnRow);
-
-              data.forEach(entry => {
-                const district = entry["広報地区"] || "その他";
-                if (!grouped[district]) grouped[district] = [];
-                grouped[district].push(entry);
-              });
-
-              for (const district in grouped) {
-                const header = document.createElement("div");
-                header.className = "district-header";
-                header.textContent = `【${district}】`;
-                sidebar.appendChild(header);
-
-                grouped[district].forEach(entry => {
-                  const name = entry["施設名"];
-                  const address = entry["住所"];
-                  const status = entry["受け取り可否"] || "未確認";
-                  const rawDate = entry["前回訪問"];
-                  const visitor = entry["訪問者"] || "不明";
-
-                  if (!name && !address) return;
-
-                  const visitDate = rawDate && rawDate !== "未入力"
-                    ? new Date(rawDate).toISOString().split("T")[0].replace(/-/g, "/")
-                    : "未入力";
-
-                  const item = document.createElement("div");
-                  item.className = "list-item";
-                  item.textContent = name;
-                  sidebar.appendChild(item);
-
-                  const facilityInfo = `${name}<br>受け取り可否:${status}<br>前回訪問:${visitDate}<br>訪問者:${visitor}`;
-
-                  geocoder.geocode({ address: address || name }, (results, statusCode) => {
-                    if (statusCode === "OK") {
-                      const position = results[0].geometry.location;
-                      const marker = new google.maps.Marker({
-                        position,
-                        map,
-                        title: name
-                      });
-
-                      const win = new CustomInfoWindow(marker, facilityInfo);
-                      infoMap.set(marker, win); // ✅ markerごとの InfoWindow を保存
-
-                      const showInfo = () => {
-                        infoMap.forEach(iw => iw.setMap(null)); // すべて閉じる
-                        win.setMap(map);
-                      };
-
-                      marker.addListener("click", () => {
-                        showInfo();
-                        highlightSelectedItem(item);
-                      });
-
-                      item.addEventListener("click", () => {
-                        showInfo();
-                        highlightSelectedItem(item);
-                      });
-
-                      markers.push(marker);
-                    }
-                  });
-                });
-              }
-            });
-        }
-
-        reloadMapData();
+          });
       }
-    </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
-  </head>
-  <body>
-    <div id="sidebar"></div>
-    <div id="map"></div>
-  </body>
+
+      reloadMapData();
+    }
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
+</head>
+<body>
+  <div id="sidebar"></div>
+  <div id="map"></div>
+</body>
 </html>
