@@ -4,36 +4,75 @@
   <meta charset="utf-8" />
   <title>訪問先マップ</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
     #sidebar {
-      width: 300px; overflow-y: auto; border-right: 1px solid #ccc;
-      padding: 10px; box-sizing: border-box; background: #fafafa;
+      width: 300px;
+      overflow-y: auto;
+      border-right: 1px solid #ccc;
+      padding: 10px;
+      box-sizing: border-box;
+      background: #fafafa;
     }
-    #map { flex: 1; }
+    #map {
+      flex: 1;
+    }
     .list-item {
-      padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
     }
-    .list-item:hover { background-color: #f0f0f0; }
-    .list-item.active { background-color: #d0ebff; }
+    .list-item:hover {
+      background-color: #f0f0f0;
+    }
+    .list-item.active {
+      background-color: #d0ebff;
+    }
     .district-header {
-      font-weight: bold; margin-top: 15px; margin-bottom: 5px;
-      color: #333; border-bottom: 1px solid #ddd; padding-bottom: 4px;
-      display: flex; justify-content: space-between; align-items: center;
+      font-weight: bold;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      color: #333;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .district-header button {
-      font-size: 12px; padding: 2px 6px; margin-left: 6px;
-      background-color: #2ecc71; color: white; border: none;
-      border-radius: 4px; cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+      margin-left: 6px;
+      background-color: #2ecc71;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
     .top-buttons {
-      display: flex; justify-content: space-between; gap: 4px; margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      margin-bottom: 10px;
     }
     .top-buttons button {
-      flex: 1; padding: 6px 0; border: none; border-radius: 4px;
-      color: white; cursor: pointer;
+      flex: 1;
+      padding: 6px 0;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
     }
-    .open-all { background-color: #3498db; }
-    .close-all { background-color: #e74c3c; }
+    .open-all {
+      background-color: #3498db;
+    }
+    .close-all {
+      background-color: #e74c3c;
+    }
   </style>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
   <script>
@@ -45,7 +84,8 @@
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 13, center: { lat: 35.71006, lng: 139.8107 }
+        zoom: 13,
+        center: { lat: 35.71006, lng: 139.8107 }
       });
 
       const icons = {
@@ -62,12 +102,14 @@
 
           const topButtons = document.createElement("div");
           topButtons.className = "top-buttons";
+
           const openAllBtn = document.createElement("button");
           openAllBtn.className = "open-all";
           openAllBtn.textContent = "✅ すべて表示";
           openAllBtn.onclick = () => {
             infoWindows.forEach((win, i) => win.open(map, markers[i]));
           };
+
           const closeAllBtn = document.createElement("button");
           closeAllBtn.className = "close-all";
           closeAllBtn.textContent = "❌ すべて閉じる";
@@ -77,6 +119,7 @@
             currentlyOpenWindow = null;
             currentlyActiveItem = null;
           };
+
           topButtons.appendChild(openAllBtn);
           topButtons.appendChild(closeAllBtn);
           sidebar.appendChild(topButtons);
@@ -89,12 +132,17 @@
           });
 
           for (const district in grouped) {
+            const currentDistrict = district;
+
             const header = document.createElement("div");
             header.className = "district-header";
+
             const title = document.createElement("span");
-            title.textContent = `【${district}】`;
+            title.textContent = `【${currentDistrict}】`;
+
             const showBtn = document.createElement("button");
             showBtn.textContent = "一覧表示";
+
             const districtMarkers = [];
             const districtWindows = [];
 
@@ -106,7 +154,7 @@
             header.appendChild(showBtn);
             sidebar.appendChild(header);
 
-            grouped[district].forEach(entry => {
+            grouped[currentDistrict].forEach(entry => {
               const name = entry["施設名"];
               const address = entry["住所"];
               if (!address) return;
@@ -149,7 +197,9 @@
                   });
 
                   const marker = new google.maps.Marker({
-                    map: map, position: position, title: name,
+                    map: map,
+                    position: position,
+                    title: name,
                     icon: icons[status] || icons["未確認"]
                   });
 
@@ -169,7 +219,8 @@
                       if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
                       currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+                      if (currentlyActiveItem)
+                        currentlyActiveItem.classList.remove("active");
                       item.classList.add("active");
                       currentlyActiveItem = item;
                     }
@@ -185,7 +236,8 @@
                       if (currentlyOpenWindow) currentlyOpenWindow.close();
                       infoWindow.open(map, marker);
                       currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+                      if (currentlyActiveItem)
+                        currentlyActiveItem.classList.remove("active");
                       item.classList.add("active");
                       currentlyActiveItem = item;
                     }
@@ -209,5 +261,3 @@
   <div id="map"></div>
 </body>
 </html>
-
-html_full_corrected
