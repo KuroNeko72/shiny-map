@@ -78,7 +78,12 @@
       background-color: #e74c3c;
     }
   </style>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
+</head>
+<body>
+  <div id="sidebar"></div>
+  <div id="map"></div>
+
+  <!-- ✅ Google Maps APIは一番最後に読み込む -->
   <script>
     let map;
     let markers = [];
@@ -136,13 +141,11 @@
           });
 
           for (const district in grouped) {
-            const currentDistrict = district;
-
             const header = document.createElement("div");
             header.className = "district-header";
 
             const title = document.createElement("span");
-            title.textContent = `【${currentDistrict}】`;
+            title.textContent = `【${district}】`;
 
             const showBtn = document.createElement("button");
             showBtn.textContent = "一覧表示";
@@ -170,7 +173,7 @@
             districtContainer.className = "district-container";
             sidebar.appendChild(districtContainer);
 
-            grouped[currentDistrict].forEach(entry => {
+            grouped[district].forEach(entry => {
               const name = entry["施設名"];
               const address = entry["住所"];
               if (!address) return;
@@ -183,10 +186,7 @@
               let visitDate = "未入力";
               if (rawDate && rawDate !== "未入力") {
                 const d = new Date(rawDate);
-                const yyyy = d.getFullYear();
-                const mm = ("0" + (d.getMonth() + 1)).slice(-2);
-                const dd = ("0" + d.getDate()).slice(-2);
-                visitDate = `${yyyy}/${mm}/${dd}`;
+                visitDate = `${d.getFullYear()}/${("0" + (d.getMonth() + 1)).slice(-2)}/${("0" + d.getDate()).slice(-2)}`;
               }
 
               geocoder.geocode({ address }, (results, statusCode) => {
@@ -231,26 +231,8 @@
                   item.className = "list-item";
                   item.textContent = name;
 
-                  marker.addListener("click", () => {
-                    const isSame = (currentlyOpenWindow === infoWindow);
-                    if (isSame) {
-                      infoWindow.close();
-                      currentlyOpenWindow = null;
-                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-                      currentlyActiveItem = null;
-                    } else {
-                      if (currentlyOpenWindow) currentlyOpenWindow.close();
-                      infoWindow.open(map, marker);
-                      currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-                      item.classList.add("active");
-                      currentlyActiveItem = item;
-                    }
-                  });
-
-                  item.addEventListener("click", () => {
-                    const isSame = (currentlyOpenWindow === infoWindow);
-                    if (isSame) {
+                  const handleClick = () => {
+                    if (currentlyOpenWindow === infoWindow) {
                       infoWindow.close();
                       currentlyOpenWindow = null;
                       item.classList.remove("active");
@@ -263,7 +245,10 @@
                       item.classList.add("active");
                       currentlyActiveItem = item;
                     }
-                  });
+                  };
+
+                  marker.addListener("click", handleClick);
+                  item.addEventListener("click", handleClick);
 
                   markers.push(marker);
                   infoWindows.push(infoWindow);
@@ -277,9 +262,6 @@
         });
     }
   </script>
-</head>
-<body>
-  <div id="sidebar"></div>
-  <div id="map"></div>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
 </body>
 </html>
