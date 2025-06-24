@@ -83,7 +83,6 @@
   <div id="sidebar"></div>
   <div id="map"></div>
 
-  <!-- ✅ Google Maps APIは一番最後に読み込む -->
   <script>
     let map;
     let markers = [];
@@ -182,6 +181,7 @@
               const status = entry["受け取り可否"] || "未確認";
               const rawDate = entry["前回訪問"];
               const visitor = entry["訪問者"] || "不明";
+              const shelving = entry["配架"] || "未入力";
 
               let visitDate = "未入力";
               if (rawDate && rawDate !== "未入力") {
@@ -200,6 +200,7 @@
                       </div>
                       <div style="font-size: 13px; line-height: 1.4;">
                         受け取り可否：${status}<br>
+                        配架：${shelving}<br>
                         前回訪問：${visitDate}　訪問者：${visitor}
                       </div>
                     </div>`;
