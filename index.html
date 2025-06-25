@@ -8,32 +8,10 @@
       margin: 0;
       font-family: Arial, sans-serif;
       display: flex;
-      flex-direction: column;
       height: 100vh;
     }
-    #filter-panel {
-      background: #f4f4f4;
-      padding: 10px;
-      border-bottom: 1px solid #ccc;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      font-size: 13px;
-    }
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-    }
-    .filter-title {
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    #map-container {
-      display: flex;
-      flex: 1;
-    }
     #sidebar {
-      width: 300px;
+      width: 320px;
       overflow-y: auto;
       border-right: 1px solid #ccc;
       padding: 10px;
@@ -79,83 +57,87 @@
       margin-left: 10px;
       margin-bottom: 10px;
     }
+    .top-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .top-buttons button {
+      flex: 1;
+      padding: 6px 0;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+    }
+    .open-all { background-color: #3498db; }
+    .close-all { background-color: #e74c3c; }
+    .filters {
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .filters label {
+      display: block;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
-  <div id="filter-panel">
-    <div class="filter-group">
-      <div class="filter-title">受け取り</div>
-      <label><input type="checkbox" class="filter-receive" value="可" checked> 可</label>
-      <label><input type="checkbox" class="filter-receive" value="不可" checked> 不可</label>
-      <label><input type="checkbox" class="filter-receive" value="検討" checked> 検討</label>
+  <div id="sidebar">
+    <div class="filters">
+      <strong>【フィルター】</strong>
+      <label><input type="checkbox" class="receive-filter" value="可" checked> 受け取り：可</label>
+      <label><input type="checkbox" class="receive-filter" value="不可" checked> 受け取り：不可</label>
+      <label><input type="checkbox" class="receive-filter" value="検討" checked> 受け取り：検討</label>
+      <label><input type="checkbox" class="shelve-filter" value="可能" checked> 配架：可能</label>
+      <label><input type="checkbox" class="shelve-filter" value="不可" checked> 配架：不可</label>
+      <label><input type="checkbox" class="shelve-filter" value="次回確認" checked> 配架：次回確認</label>
+      <label>訪問経過：
+        <select id="days-filter">
+          <option value="0">すべて表示</option>
+          <option value="30">30日未満を除外</option>
+          <option value="60">60日未満を除外</option>
+          <option value="90">90日未満を除外</option>
+          <option value="180">半年未満を除外</option>
+          <option value="365">1年未満を除外</option>
+        </select>
+      </label>
     </div>
-    <div class="filter-group">
-      <div class="filter-title">配架</div>
-      <label><input type="checkbox" class="filter-shelve" value="可能" checked> 可能</label>
-      <label><input type="checkbox" class="filter-shelve" value="不可" checked> 不可</label>
-      <label><input type="checkbox" class="filter-shelve" value="次回確認" checked> 次回確認</label>
-    </div>
-    <div class="filter-group">
-      <div class="filter-title">未訪問期間</div>
-      <label><input type="checkbox" class="filter-days" value="30"> 30日以上</label>
-      <label><input type="checkbox" class="filter-days" value="60"> 60日以上</label>
-      <label><input type="checkbox" class="filter-days" value="90"> 90日以上</label>
-      <label><input type="checkbox" class="filter-days" value="180"> 180日以上</label>
-      <label><input type="checkbox" class="filter-days" value="365"> 365日以上</label>
-      <label><input type="checkbox" class="filter-days" value="unknown"> 未入力</label>
+    <div class="top-buttons">
+      <button class="open-all">✅ すべて表示</button>
+      <button class="close-all">❌ すべて閉じる</button>
     </div>
   </div>
-  <div id="map-container">
-    <div id="sidebar"></div>
-    <div id="map"></div>
-  </div>
+  <div id="map"></div>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
   <script>
     let map;
     let markers = [];
     let infoWindows = [];
-    let listItems = [];
+    let currentlyOpenWindow = null;
+    let currentlyActiveItem = null;
 
-    function daysSince(dateStr) {
-      if (!dateStr || dateStr === "未入力") return null;
-      const today = new Date();
-      const date = new Date(dateStr);
-      const diff = today - date;
-      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    function getFilters() {
+      const receive = [...document.querySelectorAll(".receive-filter:checked")].map(e => e.value);
+      const shelve = [...document.querySelectorAll(".shelve-filter:checked")].map(e => e.value);
+      const days = parseInt(document.getElementById("days-filter").value);
+      return { receive, shelve, days };
     }
 
-    function getCheckedValues(className) {
-      return Array.from(document.querySelectorAll(`.${className}:checked`)).map(e => e.value);
-    }
+    function isVisible(entry, filters) {
+      const receive = entry["資料受取"] || "未確認";
+      const shelve = entry["配架"] || "未入力";
+      const rawDate = entry["前回訪問"];
 
-    function passesFilters(entry) {
-      const receiveStatus = entry["受け取り可否"] || "未確認";
-      const shelveStatus = entry["配架"] || "未入力";
-      const visitRaw = entry["前回訪問"] || "未入力";
-
-      const receiveFilter = getCheckedValues("filter-receive");
-      const shelveFilter = getCheckedValues("filter-shelve");
-      const daysFilter = getCheckedValues("filter-days");
-
-      const days = daysSince(visitRaw);
-
-      const daysMatch = daysFilter.some(val => {
-        if (val === "unknown") return days === null;
-        return days !== null && days >= parseInt(val);
-      });
-
-      return receiveFilter.includes(receiveStatus) &&
-             shelveFilter.includes(shelveStatus) &&
-             (daysFilter.length === 0 || daysMatch);
-    }
-
-    function updateVisibility() {
-      markers.forEach((marker, i) => {
-        const visible = passesFilters(marker.entry);
-        marker.setVisible(visible);
-        listItems[i].style.display = visible ? "" : "none";
-      });
+      let visitOK = true;
+      if (filters.days > 0 && rawDate && rawDate !== "未入力") {
+        const visitDate = new Date(rawDate);
+        const now = new Date();
+        const diff = (now - visitDate) / (1000 * 60 * 60 * 24);
+        visitOK = diff >= filters.days;
+      }
+      return filters.receive.includes(receive) && filters.shelve.includes(shelve) && visitOK;
     }
 
     function initMap() {
@@ -164,74 +146,97 @@
         center: { lat: 35.71006, lng: 139.8107 }
       });
 
-      const sidebar = document.getElementById("sidebar");
-      const iconMap = {
+      const icons = {
         "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
         "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-        "検討": "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-        "未確認": "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+        "検討": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
       };
 
-      fetch("YOUR_JSON_ENDPOINT")
-        .then(response => response.json())
+      fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
+        .then(res => res.json())
         .then(data => {
           const geocoder = new google.maps.Geocoder();
+          const sidebar = document.getElementById("sidebar");
 
-          data.forEach(entry => {
-            const name = entry["施設名"];
-            const address = entry["住所"];
-            const status = entry["受け取り可否"] || "未確認";
-            const visit = entry["前回訪問"] || "未入力";
-            const shelve = entry["配架"] || "未入力";
-            const visitor = entry["訪問者"] || "不明";
+          document.querySelector(".open-all").onclick = () => infoWindows.forEach((w, i) => w.open(map, markers[i]));
+          document.querySelector(".close-all").onclick = () => {
+            infoWindows.forEach(w => w.close());
+            if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+            currentlyOpenWindow = null;
+            currentlyActiveItem = null;
+          };
 
-            geocoder.geocode({ address }, (results, statusCode) => {
-              if (statusCode === "OK") {
-                const position = results[0].geometry.location;
-                const infoContent = `
-                  <div><strong>${name}</strong><br>
-                  受け取り可否：${status}<br>
-                  配架：${shelve}<br>
-                  前回訪問：${visit}<br>
-                  訪問者：${visitor}</div>
-                `;
-                const infoWindow = new google.maps.InfoWindow({ content: infoContent });
-                const marker = new google.maps.Marker({
-                  map: map,
-                  position,
-                  title: name,
-                  icon: iconMap[status] || iconMap["未確認"]
-                });
-
-                marker.entry = entry;
-                markers.push(marker);
-                infoWindows.push(infoWindow);
-
-                const listItem = document.createElement("div");
-                listItem.className = "list-item";
-                listItem.textContent = name;
-                listItems.push(listItem);
-                sidebar.appendChild(listItem);
-
-                marker.addListener("click", () => {
-                  infoWindows.forEach(w => w.close());
-                  infoWindow.open(map, marker);
-                });
-                listItem.addEventListener("click", () => {
-                  infoWindows.forEach(w => w.close());
-                  infoWindow.open(map, marker);
-                });
-
-                updateVisibility();
-              }
-            });
+          const grouped = {};
+          data.forEach(e => {
+            const d = e["広報地区"] || "その他";
+            if (!grouped[d]) grouped[d] = [];
+            grouped[d].push(e);
           });
-        });
 
-      document.querySelectorAll("#filter-panel input").forEach(input => {
-        input.addEventListener("change", updateVisibility);
-      });
+          const filters = getFilters();
+          for (const district in grouped) {
+            const entries = grouped[district].filter(e => isVisible(e, filters));
+            if (entries.length === 0) continue;
+
+            const header = document.createElement("div");
+            header.className = "district-header";
+            header.innerHTML = `<span>【${district}】</span>`;
+            sidebar.appendChild(header);
+
+            const container = document.createElement("div");
+            container.className = "district-container";
+            sidebar.appendChild(container);
+
+            entries.forEach(entry => {
+              const name = entry["施設名"];
+              const address = entry["住所"];
+              if (!address) return;
+              const status = entry["資料受取"] || "未確認";
+              const shelving = entry["配架"] || "未入力";
+              const visitor = entry["訪問者"] || "不明";
+              const rawDate = entry["前回訪問"];
+              const visitDate = rawDate && rawDate !== "未入力" ? new Date(rawDate).toLocaleDateString() : "未入力";
+
+              geocoder.geocode({ address }, (results, status) => {
+                if (status === "OK") {
+                  const pos = results[0].geometry.location;
+                  const info = new google.maps.InfoWindow({
+                    content: `<div style="font-size:13px"><b>${name}</b><br>受け取り：${status}<br>配架：${shelving}<br>前回訪問：${visitDate}（${visitor}）</div>`
+                  });
+
+                  const marker = new google.maps.Marker({
+                    map: map,
+                    position: pos,
+                    title: name,
+                    icon: icons[status] || icons["検討"]
+                  });
+
+                  const item = document.createElement("div");
+                  item.className = "list-item";
+                  item.textContent = name;
+                  item.onclick = () => {
+                    if (currentlyOpenWindow) currentlyOpenWindow.close();
+                    info.open(map, marker);
+                    currentlyOpenWindow = info;
+                    if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
+                    item.classList.add("active");
+                    currentlyActiveItem = item;
+                  };
+                  marker.addListener("click", item.onclick);
+
+                  markers.push(marker);
+                  infoWindows.push(info);
+                  container.appendChild(item);
+                }
+              });
+            });
+          }
+        });
     }
+
+    window.initMap = initMap;
   </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
 </body>
 </html>
