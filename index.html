@@ -2,13 +2,35 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>訪問先マップ</title>
+  <title>訪問先マップ（フィルター機能付き）</title>
   <style>
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       display: flex;
+      flex-direction: column;
       height: 100vh;
+    }
+    #filter-panel {
+      background: #f4f4f4;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .filter-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    #map-container {
+      display: flex;
+      flex: 1;
     }
     #sidebar {
       width: 300px;
@@ -57,38 +79,84 @@
       margin-left: 10px;
       margin-bottom: 10px;
     }
-    .top-buttons {
-      display: flex;
-      justify-content: space-between;
-      gap: 4px;
-      margin-bottom: 10px;
-    }
-    .top-buttons button {
-      flex: 1;
-      padding: 6px 0;
-      border: none;
-      border-radius: 4px;
-      color: white;
-      cursor: pointer;
-    }
-    .open-all {
-      background-color: #3498db;
-    }
-    .close-all {
-      background-color: #e74c3c;
-    }
   </style>
 </head>
 <body>
-  <div id="sidebar"></div>
-  <div id="map"></div>
+  <div id="filter-panel">
+    <div class="filter-group">
+      <div class="filter-title">受け取り</div>
+      <label><input type="checkbox" class="filter-receive" value="可" checked> 可</label>
+      <label><input type="checkbox" class="filter-receive" value="不可" checked> 不可</label>
+      <label><input type="checkbox" class="filter-receive" value="検討" checked> 検討</label>
+    </div>
+    <div class="filter-group">
+      <div class="filter-title">配架</div>
+      <label><input type="checkbox" class="filter-shelve" value="可能" checked> 可能</label>
+      <label><input type="checkbox" class="filter-shelve" value="不可" checked> 不可</label>
+      <label><input type="checkbox" class="filter-shelve" value="次回確認" checked> 次回確認</label>
+    </div>
+    <div class="filter-group">
+      <div class="filter-title">未訪問期間</div>
+      <label><input type="checkbox" class="filter-days" value="30"> 30日以上</label>
+      <label><input type="checkbox" class="filter-days" value="60"> 60日以上</label>
+      <label><input type="checkbox" class="filter-days" value="90"> 90日以上</label>
+      <label><input type="checkbox" class="filter-days" value="180"> 180日以上</label>
+      <label><input type="checkbox" class="filter-days" value="365"> 365日以上</label>
+      <label><input type="checkbox" class="filter-days" value="unknown"> 未入力</label>
+    </div>
+  </div>
+  <div id="map-container">
+    <div id="sidebar"></div>
+    <div id="map"></div>
+  </div>
 
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
   <script>
     let map;
     let markers = [];
     let infoWindows = [];
-    let currentlyOpenWindow = null;
-    let currentlyActiveItem = null;
+    let listItems = [];
+
+    function daysSince(dateStr) {
+      if (!dateStr || dateStr === "未入力") return null;
+      const today = new Date();
+      const date = new Date(dateStr);
+      const diff = today - date;
+      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function getCheckedValues(className) {
+      return Array.from(document.querySelectorAll(`.${className}:checked`)).map(e => e.value);
+    }
+
+    function passesFilters(entry) {
+      const receiveStatus = entry["受け取り可否"] || "未確認";
+      const shelveStatus = entry["配架"] || "未入力";
+      const visitRaw = entry["前回訪問"] || "未入力";
+
+      const receiveFilter = getCheckedValues("filter-receive");
+      const shelveFilter = getCheckedValues("filter-shelve");
+      const daysFilter = getCheckedValues("filter-days");
+
+      const days = daysSince(visitRaw);
+
+      const daysMatch = daysFilter.some(val => {
+        if (val === "unknown") return days === null;
+        return days !== null && days >= parseInt(val);
+      });
+
+      return receiveFilter.includes(receiveStatus) &&
+             shelveFilter.includes(shelveStatus) &&
+             (daysFilter.length === 0 || daysMatch);
+    }
+
+    function updateVisibility() {
+      markers.forEach((marker, i) => {
+        const visible = passesFilters(marker.entry);
+        marker.setVisible(visible);
+        listItems[i].style.display = visible ? "" : "none";
+      });
+    }
 
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
@@ -96,173 +164,74 @@
         center: { lat: 35.71006, lng: 139.8107 }
       });
 
-      const icons = {
+      const sidebar = document.getElementById("sidebar");
+      const iconMap = {
         "可": "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
         "不可": "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-        "未確認": "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+        "検討": "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
+        "未確認": "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
       };
 
-      fetch("https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_MUyKuabYCEacuEOQr9DhUDiB0t0yRuKdLL4NMRT-DW4MCPN-pgzOmpwyPbMmYVnfu8Y7n4XX4EAsK454yx3MhffWkZcJ-zpg1kKKHxoSQ9yhD0mwtxSYAnWFBKVcMWgsSbC8xbZ_yzjI4mjSFiXga6V88L8vRyO9_U3J9XeyEEXCmI0tfFP27RWjgB-Z8luFgpo6k1pKJypR8mXXfCPJdkkuN_cP634KmNFjUOux8_gJbDMjIOCOGEFdr2UDiitCIDqzTtJcHXAuYxyvo8Gc4FlePEWGzWJrm346&lib=MavVMtVIJN2j1dWEVARyyVyNB014Mn1gM")
+      fetch("YOUR_JSON_ENDPOINT")
         .then(response => response.json())
         .then(data => {
           const geocoder = new google.maps.Geocoder();
-          const sidebar = document.getElementById("sidebar");
 
-          const topButtons = document.createElement("div");
-          topButtons.className = "top-buttons";
-
-          const openAllBtn = document.createElement("button");
-          openAllBtn.className = "open-all";
-          openAllBtn.textContent = "✅ すべて表示";
-          openAllBtn.onclick = () => {
-            infoWindows.forEach((win, i) => win.open(map, markers[i]));
-          };
-
-          const closeAllBtn = document.createElement("button");
-          closeAllBtn.className = "close-all";
-          closeAllBtn.textContent = "❌ すべて閉じる";
-          closeAllBtn.onclick = () => {
-            infoWindows.forEach(win => win.close());
-            if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-            currentlyOpenWindow = null;
-            currentlyActiveItem = null;
-          };
-
-          topButtons.appendChild(openAllBtn);
-          topButtons.appendChild(closeAllBtn);
-          sidebar.appendChild(topButtons);
-
-          const grouped = {};
           data.forEach(entry => {
-            const d = entry["広報地区"] || "その他";
-            if (!grouped[d]) grouped[d] = [];
-            grouped[d].push(entry);
-          });
+            const name = entry["施設名"];
+            const address = entry["住所"];
+            const status = entry["受け取り可否"] || "未確認";
+            const visit = entry["前回訪問"] || "未入力";
+            const shelve = entry["配架"] || "未入力";
+            const visitor = entry["訪問者"] || "不明";
 
-          for (const district in grouped) {
-            const header = document.createElement("div");
-            header.className = "district-header";
+            geocoder.geocode({ address }, (results, statusCode) => {
+              if (statusCode === "OK") {
+                const position = results[0].geometry.location;
+                const infoContent = `
+                  <div><strong>${name}</strong><br>
+                  受け取り可否：${status}<br>
+                  配架：${shelve}<br>
+                  前回訪問：${visit}<br>
+                  訪問者：${visitor}</div>
+                `;
+                const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+                const marker = new google.maps.Marker({
+                  map: map,
+                  position,
+                  title: name,
+                  icon: iconMap[status] || iconMap["未確認"]
+                });
 
-            const title = document.createElement("span");
-            title.textContent = `【${district}】`;
+                marker.entry = entry;
+                markers.push(marker);
+                infoWindows.push(infoWindow);
 
-            const showBtn = document.createElement("button");
-            showBtn.textContent = "一覧表示";
-            let isOpen = false;
+                const listItem = document.createElement("div");
+                listItem.className = "list-item";
+                listItem.textContent = name;
+                listItems.push(listItem);
+                sidebar.appendChild(listItem);
 
-            const districtMarkers = [];
-            const districtWindows = [];
+                marker.addListener("click", () => {
+                  infoWindows.forEach(w => w.close());
+                  infoWindow.open(map, marker);
+                });
+                listItem.addEventListener("click", () => {
+                  infoWindows.forEach(w => w.close());
+                  infoWindow.open(map, marker);
+                });
 
-            showBtn.onclick = () => {
-              if (isOpen) {
-                districtWindows.forEach(win => win.close());
-                showBtn.textContent = "一覧表示";
-              } else {
-                districtWindows.forEach((win, i) => win.open(map, districtMarkers[i]));
-                showBtn.textContent = "閉じる";
+                updateVisibility();
               }
-              isOpen = !isOpen;
-            };
-
-            header.appendChild(title);
-            header.appendChild(showBtn);
-            sidebar.appendChild(header);
-
-            const districtContainer = document.createElement("div");
-            districtContainer.className = "district-container";
-            sidebar.appendChild(districtContainer);
-
-            grouped[district].forEach(entry => {
-              const name = entry["施設名"];
-              const address = entry["住所"];
-              if (!address) return;
-
-              const safeId = name.replace(/[^a-zA-Z0-9]/g, "_");
-              const status = entry["受け取り可否"] || "未確認";
-              const rawDate = entry["前回訪問"];
-              const visitor = entry["訪問者"] || "不明";
-              const shelving = entry["配架"] || "未入力";
-
-              let visitDate = "未入力";
-              if (rawDate && rawDate !== "未入力") {
-                const d = new Date(rawDate);
-                visitDate = `${d.getFullYear()}/${("0" + (d.getMonth() + 1)).slice(-2)}/${("0" + d.getDate()).slice(-2)}`;
-              }
-
-              geocoder.geocode({ address }, (results, statusCode) => {
-                if (statusCode === "OK") {
-                  const position = results[0].geometry.location;
-
-                  const infoContent = `
-                    <div id="info_${safeId}" style="max-width: 250px; cursor: pointer;">
-                      <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">
-                        ${name}
-                      </div>
-                      <div style="font-size: 13px; line-height: 1.4;">
-                        受け取り可否：${status}<br>
-                        配架：${shelving}<br>
-                        前回訪問：${visitDate}　訪問者：${visitor}
-                      </div>
-                    </div>`;
-
-                  const infoWindow = new google.maps.InfoWindow({ content: infoContent });
-
-                  infoWindow.addListener("domready", () => {
-                    const el = document.getElementById(`info_${safeId}`);
-                    if (el) {
-                      el.addEventListener("click", () => {
-                        infoWindow.close();
-                        if (currentlyOpenWindow === infoWindow && currentlyActiveItem) {
-                          currentlyActiveItem.classList.remove("active");
-                          currentlyOpenWindow = null;
-                          currentlyActiveItem = null;
-                        }
-                      });
-                    }
-                  });
-
-                  const marker = new google.maps.Marker({
-                    map: map,
-                    position: position,
-                    title: name,
-                    icon: icons[status] || icons["未確認"]
-                  });
-
-                  const item = document.createElement("div");
-                  item.className = "list-item";
-                  item.textContent = name;
-
-                  const handleClick = () => {
-                    if (currentlyOpenWindow === infoWindow) {
-                      infoWindow.close();
-                      currentlyOpenWindow = null;
-                      item.classList.remove("active");
-                      currentlyActiveItem = null;
-                    } else {
-                      if (currentlyOpenWindow) currentlyOpenWindow.close();
-                      infoWindow.open(map, marker);
-                      currentlyOpenWindow = infoWindow;
-                      if (currentlyActiveItem) currentlyActiveItem.classList.remove("active");
-                      item.classList.add("active");
-                      currentlyActiveItem = item;
-                    }
-                  };
-
-                  marker.addListener("click", handleClick);
-                  item.addEventListener("click", handleClick);
-
-                  markers.push(marker);
-                  infoWindows.push(infoWindow);
-                  districtMarkers.push(marker);
-                  districtWindows.push(infoWindow);
-                  districtContainer.appendChild(item);
-                }
-              });
             });
-          }
+          });
         });
+
+      document.querySelectorAll("#filter-panel input").forEach(input => {
+        input.addEventListener("change", updateVisibility);
+      });
     }
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBe8z63G6IyDacbjrcN4Yj1ffT7m0U48wg&callback=initMap" async defer></script>
 </body>
 </html>
